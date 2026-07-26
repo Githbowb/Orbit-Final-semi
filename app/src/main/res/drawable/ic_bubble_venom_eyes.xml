@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="56dp"
+    android:height="56dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Left Venom Eye -->
+    <path
+        android:pathData="M 18,32 C 26,22 42,28 46,42 C 48,56 36,68 20,60 C 14,56 12,42 18,32 Z"
+        android:fillColor="#FFFFFF"/>
+    <!-- Right Venom Eye -->
+    <path
+        android:pathData="M 82,32 C 74,22 58,28 54,42 C 52,56 64,68 80,60 C 86,56 88,42 82,32 Z"
+        android:fillColor="#FFFFFF"/>
+</vector>

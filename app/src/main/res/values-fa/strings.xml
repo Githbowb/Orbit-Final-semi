@@ -1,0 +1,225 @@
+<resources>
+    <string name="app_name">اوربیت</string>
+    <string name="app_desc">برنامه‌های پرکاربرد خود را با یک لمس از هر صفحه‌ای اجرا کنید</string>
+
+    <!-- Bottom Nav Tabs -->
+    <string name="tab_orbit">اوربیت</string>
+    <string name="tab_vault">گاوصندوق</string>
+    <string name="tab_studio">استودیو</string>
+    <string name="tab_tools">ابزارها</string>
+    <string name="tab_setup">تنظیمات</string>
+    <string name="tab_settings">تنظیمات</string>
+
+    <string name="launch_control">کنترل پرتاب</string>
+    <string name="launch_control_orbit">کنترل پرتاب · اوربیت</string>
+    <string name="in_orbit">در مدار</string>
+    <!-- System Performance Monitor -->
+    <string name="ram_monitor_title">عملکرد سیستم و حافظه</string>
+    <string name="ram_usage_label">میزان مصرف حافظه سیستم</string>
+    <string name="ram_available_fmt">%1$.1f گیگابایت آزاد</string>
+    <string name="ram_total_fmt">%1$.1f گیگابایت کل</string>
+    <string name="app_heap_fmt">%1$.1f مگابایت</string>
+    <string name="ram_available_title">حافظه آزاد</string>
+    <string name="ram_total_title">کل حافظه</string>
+    <string name="app_heap_title">مصرف برنامه</string>
+    <string name="overlay_impact_title">تأثیر سرویس شناور</string>
+    <string name="status_optimal_performance">عملکرد بهینه</string>
+    <string name="status_high_usage_warning">هشدار مصرف بالا</string>
+    <string name="unit_free">آزاد</string>
+    <string name="unit_total">کل</string>
+
+    <!-- Orbit Tab -->
+    <string name="orbit_dashboard_title">داشبورد اوربیت</string>
+    <string name="floating_service">سرویس شناور</string>
+    <string name="floating_service_status">سرویس لایه شناور</string>
+    <string name="service_active">فعال و در حال اجرا</string>
+    <string name="service_inactive">غیرفعال</string>
+    <string name="bubble_size_dp">اندازه حباب (dp)</string>
+    <string name="launches_count">%1$d اجرا</string>
+    <string name="recent_usage_title">استفاده واقعی اخیر</string>
+    <string name="recent_usage_subtitle">فعالیت برنامه‌ها به‌صورت زنده مرتب شده است</string>
+    <string name="total_launches">مجموع اجراها</string>
+    <string name="last_launched">آخرین اجرا</string>
+    <string name="no_recent_activity">هنوز هیچ فعالیتی ثبت نشده است</string>
+    <string name="recently_active">اخيراً فعال</string>
+    <string name="minutes_used">%1$d دقیقه استفاده شده</string>
+
+    <!-- Studio Tab -->
+    <string name="floating_bubble_header">حباب شناور</string>
+    <string name="studio_title">استودیو سفارشی‌سازی حباب</string>
+    <string name="studio_subtitle">حباب شناور اختصاصی خود را طراحی و شخصی‌سازی کنید</string>
+    <string name="presets">پیش‌فرض‌ها</string>
+    <string name="canvas">بوم نقاشی</string>
+    <string name="live_bubble_preview">پیش‌نمایش زنده حباب</string>
+    <string name="upload_custom_image">بارگذاری تصویر دلخواه</string>
+    <string name="upload_custom_image_desc">تصویر مورد نظر را از گالری انتخاب و برش دهید</string>
+    <string name="bubble_vector_symbol">نماد برداری حباب</string>
+    <string name="inner_element_tint">رنگ عنصر داخلی</string>
+    <string name="bubble_size">اندازه حباب</string>
+    <string name="opacity">شفافیت</string>
+    <string name="glow_intensity">شدت درخشش</string>
+    <string name="border_stroke">ضخامت حاشیه</string>
+    <string name="theme_glow_palette">پالت درخشش تم</string>
+    <string name="save_studio_config">ذخیره تنظیمات استودیو</string>
+    <string name="preset_library">سبک‌های آماده حباب</string>
+    <string name="creator_studio">استودیو طراحی سفارشی</string>
+    <string name="bubble_icon_symbol">نماد آیکون حباب</string>
+    <string name="primary_color">رنگ اصلی</string>
+    <string name="secondary_color">رنگ ثانویه</string>
+    <string name="gradient_type">الگوی گرادیان</string>
+    <string name="bubble_label_name">نام / برچسب حباب</string>
+    <string name="live_preview">پیش‌نمایش تعاملی زنده</string>
+    <string name="canvas_painter">بوم نقاشی</string>
+    <string name="undo">واگرد</string>
+    <string name="clear">پاکسازی</string>
+    <string name="eraser_mode">حالت پاک‌کن</string>
+    <string name="eraser_size">اندازه پاک‌کن</string>
+    <string name="brush_thickness">ضخامت قلم‌مو</string>
+    <string name="px_unit">%1$d پیکسل</string>
+    <string name="apply_drawing">اعمال نقاشی روی حباب شناور</string>
+    <string name="default_label">پیش‌فرض</string>
+    <string name="custom_tint">رنگ سفارشی</string>
+
+    <!-- Tools Tab -->
+    <string name="tools_title">مدیریت ابزارها و برنامه‌های شناور</string>
+    <string name="tools_subtitle">فعال، غیرفعال و مرتب‌سازی ابزارهای سریع شناور</string>
+    <string name="enabled_tools">ابزارهای فعال</string>
+    <string name="drag_reorder_hint">از دکمه‌های بالا/پایین برای تغییر ترتیب ابزار استفاده کنید</string>
+    <string name="launch_control_header">مرکز کنترل · اوربیت</string>
+    <string name="tool_vault_name">گاوصندوق سریع</string>
+    <string name="tool_calc_name">ماشین حساب</string>
+    <string name="tool_ocr_name">متن‌خوان دوربین</string>
+    <string name="tool_dial_name">شماره‌گیری سریع</string>
+    <string name="tool_launcher_name">پرتاب‌کننده برنامه‌ها</string>
+    <string name="tool_scanner_name">اسکنر صفحه</string>
+
+    <!-- Settings Tab -->
+    <string name="customize_theme">سفارشی‌سازی رنگ نئون</string>
+    <string name="theme_desc">رنگ نئون مورد علاقه خود را برای حباب شناور و داشبورد انتخاب کنید</string>
+    <string name="bubble_size_title">سفارشی‌سازی اندازه حباب</string>
+    <string name="bubble_size_desc">تغییر پویای اندازه حباب شناور روی صفحه (۳۰ تا ۸۰)</string>
+    <string name="settings_permissions">تنظیمات و مجوزهای برنامه</string>
+    <string name="display_over_apps">نمایش روی سایر برنامه‌ها</string>
+    <string name="display_over_apps_desc">برای نمایش حباب اقدام سریع روی سایر برنامه‌ها الزامی است.</string>
+    <string name="usage_stats">آمار استفاده از سیستم</string>
+    <string name="usage_stats_desc">برای شناسایی و مرتب‌سازی برنامه‌ها بر اساس میزان استفاده واقعی الزامی است.</string>
+    <string name="foreground_notifications">اعلان‌های پیش‌زمینه</string>
+    <string name="foreground_notifications_desc">سرویس لایه شناور را بدون وقفه در پس‌زمینه فعال نگه می‌دارد.</string>
+    <string name="granted">تأیید شده</string>
+    <string name="enable">فعال‌سازی</string>
+    <string name="activate_permissions_warning">لطفاً تمام مجوزهای لازم را در بالا فعال کنید تا سرویس شناور روشن شود.</string>
+    <string name="stop_service">توقف سرویس شناور</string>
+    <string name="start_service">شروع سرویس شناور</string>
+    
+    <!-- Intro Sequence strings -->
+    <string name="intro_msg_1">سلام :3</string>
+    <string name="intro_msg_2">می‌بینم این برنامه رو دانلود کردی، تنبلی مگه نه؟</string>
+    <string name="intro_msg_3">امیدوارم لذت ببری &lt;3</string>
+    <string name="intro_next">بعدی</string>
+
+    <!-- Onboarding strings -->
+    <string name="onboarding_title">به اوربیت خوش آمدید</string>
+    <string name="onboarding_funny_tagline">این برنامه برای افراد تنبل ساخته شده است!</string>
+    <string name="onboarding_simple_desc">اوربیت به‌عنوان یک دستیار شناور روی صفحه عمل می‌کند و به شما اجازه می‌دهد برنامه‌های محبوبتان را فوراً با یک لمس باز کنید.</string>
+    <string name="onboarding_privacy_note">اوربیت ۱۰۰٪ آفلاین روی دستگاه شما اجرا می‌شود و اطلاعات شخصی شما هرگز گوشی را ترک نمی‌کند.</string>
+    <string name="onboarding_get_started">شروع کنید</string>
+    <string name="onboarding_skip_permissions">رد کردن مجوزها</string>
+    <string name="choose_username">نام کاربری خود را انتخاب کنید</string>
+    <string name="username_hint">پشتیبانی از ایموجی، نمادها، فاصله و فونت‌های خاص (مانند 𝑽𝑬𝑵𝑶𝑴، ♡)</string>
+    <string name="username_label">نام کاربری</string>
+
+    <!-- Language Switcher -->
+    <string name="select_language">Select Language / لغة / زبان</string>
+    <string name="continue_btn">ادامه</string>
+
+    <!-- Change Username -->
+    <string name="change_username">تغییر نام کاربری</string>
+    <string name="current_username_prefix">فعلی: %1$s</string>
+    <string name="save_changes">ذخیره تغییرات</string>
+    <string name="cancel">انصراف</string>
+    <string name="username_updated">نام کاربری به روز شد!</string>
+    <string name="hello_username">سلام، %1$s</string>
+    <string name="utf8_support_hint">پشتیبانی از UTF-8، ایموجی‌ها و نمادهای خاص</string>
+    <string name="enter_valid_username">لطفاً یک نام کاربری معتبر وارد کنید.</string>
+
+    <!-- Additional UI strings -->
+    <string name="stats">آمار</string>
+    <string name="crop_floating_bubble">برش حباب شناور</string>
+    <string name="crop_guide_hint">برای بزرگنمایی لمس کنید • برای تنظیم داخل دایره جابجا کنید</string>
+    <string name="editing_saved_note">در حال ویرایش یادداشت ذخیره‌شده...</string>
+    <string name="cancel_edit">انصراف از ویرایش</string>
+    <string name="screen_optics">بینایی صفحه</string>
+    <string name="latin_only">[ فقط انگلیسی / لاتین ]</string>
+    <string name="ocr_screen_capture">ضبط صفحه برای تشخیص متن</string>
+    <string name="ocr_downloading">در حال دانلود مدل تشخیص متن (لاتین)...</string>
+    <string name="ocr_not_ready">مدل تشخیص متن آماده نیست. برای دانلود ضربه بزنید.</string>
+    <string name="ocr_extract_desc">استخراج هر متنی که روی صفحه دستگاه دیده می‌شود</string>
+    <string name="write_quick_note_hint">یک یادداشت سریع، ایده بنویسید یا متن جای‌گذاری کنید...</string>
+    <string name="update_note">به‌روزرسانی یادداشت</string>
+    <string name="save_note">ذخیره یادداشت</string>
+    <string name="vault_folders">پوشه‌های گاوصندوق</string>
+    <string name="folder_name_hint">نام پوشه (مثلاً کاری، شخصی)</string>
+    <string name="root_folder_prefix">اصلی / %1$s</string>
+    <string name="vault_empty_msg">گاوصندوق خالی است. یک پوشه ایجاد کنید یا یادداشت ذخیره کنید!</string>
+    <string name="folder_empty_msg">این پوشه خالی است. در بالا یادداشت ذخیره کنید!</string>
+    <string name="root_notes">یادداشت‌های اصلی</string>
+    <string name="screen_ocr_badge">تشخیص متن صفحه</string>
+    <string name="manual_badge">دستی</string>
+    <string name="copied_to_clipboard">در حافظه کپی شد!</string>
+    <string name="floating_calculator">ماشین حساب شناور</string>
+    <string name="calc_hint">عبارت ریاضی را وارد کنید (مثلاً 2 * (3 + 4.5))</string>
+    <string name="calc_result">نتیجه</string>
+    <string name="calc_operators">عملگرهای پشتیبانی‌شده: + - * / ( ) .</string>
+    <string name="invalid_expression">عبارت نامعتبر</string>
+    <string name="label_hint">برچسب (مثلاً گوگل)</string>
+    <string name="url_hint">آدرس اینترنتی (مثلاً google.com)</string>
+    <string name="speed_dial_links">لینک‌های شماره‌گیری سریع</string>
+    <string name="no_links_yet">هنوز لینکی ذخیره نشده است. وب‌سایت‌های محبوب را در بالا اضافه کنید!</string>
+    <string name="invalid_link">لینک نامعتبر: %1$s</string>
+
+    <!-- Overlay strings -->
+    <string name="overlay_launchpad">سکوی اوربیت</string>
+    <string name="overlay_no_usage_permission">مجوز دسترسی به آمار فعال نیست؛ برنامه‌ها بر اساس اجراهای زنده مرتب شده‌اند.</string>
+    <string name="overlay_no_usage_stats">آماری یافت نشد؛ برنامه‌ها بر اساس میزان استفاده واقعی مرتب شده‌اند.</string>
+    <string name="overlay_most_used">استفاده واقعی اخیر</string>
+    <string name="overlay_search_placeholder">جستجوی برنامه‌ها...</string>
+    <string name="overlay_no_matching">هیچ برنامه‌ای یافت نشد</string>
+    <string name="overlay_favorites">علاقه‌مندی‌ها ⭐</string>
+    <string name="overlay_cannot_open">امکان باز کردن این برنامه وجود ندارد</string>
+    <string name="overlay_search_results">نتایج جستجو</string>
+    <string name="overlay_all_apps">همه برنامه‌ها</string>
+    <string name="overlay_close">بستن</string>
+    <string name="permission_skip">رد کردن</string>
+    <string name="permission_skipped">رد شد</string>
+    <string name="ocr_best_results">تشخیص متن در حال حاضر فقط از متون انگلیسی/لاتین پشتیبانی می‌کند.</string>
+    <string name="ocr_english_only">استخراج متن در حال حاضر فقط از زبان انگلیسی پشتیبانی می‌کند.</string>
+
+    <!-- Toast & Dialog Strings -->
+    <string name="screen_capture_permission_denied">مجوز ضبط صفحه رد شد.</string>
+    <string name="capture_failed">ضبط ناموفق بود: %1$s</string>
+    <string name="saved_to_vault_short">ذخیره شد در گاوصندوق: %1$s...</string>
+    <string name="ocr_failed">تشخیص متن ناموفق بود: %1$s</string>
+    <string name="ocr_no_text">تشخیص متن: هیچ متنی یافت نشد</string>
+    <string name="floating_service_running_bg">اوربیت در پس‌زمینه در حال اجراست - برای نمایش حباب ضربه بزنید</string>
+    <string name="floating_service_ready">پرتاب‌کننده شناور اوربیت فعال و آماده است.</string>
+    <string name="ocr_reading_screen_title">اوربیت — در حال خواندن صفحه</string>
+    <string name="ocr_reading_screen_text">اوربیت در حال گرفتن بخشی از صفحه برای تشخیص متن است. متن شما در دستگاه می‌ماند.</string>
+    <string name="display_overlay_perm_required">امکان نمایش لایه شناور وجود ندارد. لطفاً مجوز \'نمایش روی سایر برنامه‌ها\' را بررسی کنید.</string>
+    <string name="drawing_saved_to_bubble">نقاشی روی حباب ذخیره شد!</string>
+    <string name="failed_to_render_drawing">پردازش نقاشی ناموفق بود</string>
+    <string name="custom_bubble_image_applied">تصویر سفارشی حباب اعمال شد!</string>
+    <string name="failed_to_save_cropped">ذخیره تصویر برش‌خورده ناموفق بود</string>
+    <string name="studio_config_saved">تنظیمات استودیو ذخیره شد!</string>
+    <!-- Additional Service & Tab keys -->
+    <string name="orbit_bg_running">اوربیت در پس‌زمینه در حال اجراست - برای نمایش حباب ضربه بزنید</string>
+    <string name="orbit_launcher_active">پرتاب‌کننده شناور اوربیت فعال و آماده است.</string>
+    <string name="orbit_reading_screen">اوربیت — در حال خواندن صفحه</string>
+    <string name="orbit_ocr_desc">اوربیت در حال گرفتن بخشی از صفحه برای تشخیص متن است. متن شما در دستگاه می‌ماند.</string>
+    <string name="vault_desc">یادداشت‌ها و حافظه کپی امن</string>
+    <string name="calc_desc">ماشین حساب شناور و محاسبات سریع</string>
+    <string name="ocr_desc">اسکن متن با دوربین</string>
+    <string name="dial_desc">میانبرهای سریع وب و علامت‌های مرجع</string>
+    <string name="tools_track_header">بخش ۰۲ · اصلی</string>
+    <string name="select_language_desc">زبان نمایش سیستم</string>
+    <string name="welcome_to_orbit">به اوربیت خوش آمدید</string>
+</resources>

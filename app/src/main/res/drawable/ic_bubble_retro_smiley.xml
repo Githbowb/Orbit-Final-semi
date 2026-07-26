@@ -1,0 +1,25 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="56dp"
+    android:height="56dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Yellow Smiley Body -->
+    <path
+        android:pathData="M 50,50 m -34,0 a 34,34 0 1,1 68,0 a 34,34 0 1,1 -68,0"
+        android:fillColor="#FFFFD600"/>
+    <!-- Left Eye -->
+    <path
+        android:pathData="M 38,38 m -4.5,0 a 4.5,7 0 1,1 9,0 a 4.5,7 0 1,1 -9,0"
+        android:fillColor="#FF0A0F1D"/>
+    <!-- Right Eye -->
+    <path
+        android:pathData="M 62,38 m -4.5,0 a 4.5,7 0 1,1 9,0 a 4.5,7 0 1,1 -9,0"
+        android:fillColor="#FF0A0F1D"/>
+    <!-- Classic Smile Curve -->
+    <path
+        android:pathData="M 28,54 C 32,74 68,74 72,54"
+        android:strokeColor="#FF0A0F1D"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"/>
+</vector>

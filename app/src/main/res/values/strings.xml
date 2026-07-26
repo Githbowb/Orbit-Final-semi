@@ -1,0 +1,225 @@
+<resources>
+    <string name="app_name">Orbit</string>
+    <string name="app_desc">Browse and launch your most used apps with a single tap from any screen</string>
+
+    <!-- Bottom Nav Tabs -->
+    <string name="tab_orbit">ORBIT</string>
+    <string name="tab_vault">VAULT</string>
+    <string name="tab_studio">STUDIO</string>
+    <string name="tab_tools">TOOLS</string>
+    <string name="tab_setup">SETUP</string>
+    <string name="tab_settings">SETTINGS</string>
+
+    <string name="launch_control">LAUNCH CONTROL</string>
+    <string name="launch_control_orbit">LAUNCH CONTROL · ORBIT</string>
+    <string name="in_orbit">IN ORBIT</string>
+    <!-- System Performance Monitor -->
+    <string name="ram_monitor_title">SYSTEM PERFORMANCE &amp; RAM</string>
+    <string name="ram_usage_label">System RAM Usage</string>
+    <string name="ram_available_fmt">%1$.1f GB Free</string>
+    <string name="ram_total_fmt">%1$.1f GB Total</string>
+    <string name="app_heap_fmt">%1$.1f MB</string>
+    <string name="ram_available_title">Available RAM</string>
+    <string name="ram_total_title">Total RAM</string>
+    <string name="app_heap_title">App RAM</string>
+    <string name="overlay_impact_title">Overlay Service Impact</string>
+    <string name="status_optimal_performance">Optimal Performance</string>
+    <string name="status_high_usage_warning">High Usage Warning</string>
+    <string name="unit_free">Free</string>
+    <string name="unit_total">Total</string>
+
+    <!-- Orbit Tab -->
+    <string name="orbit_dashboard_title">Orbit Dashboard</string>
+    <string name="floating_service">Floating service</string>
+    <string name="floating_service_status">Floating Overlay Service</string>
+    <string name="service_active">Active &amp; Running</string>
+    <string name="service_inactive">Inactive</string>
+    <string name="bubble_size_dp">Bubble size (dp)</string>
+    <string name="launches_count">%1$d launches</string>
+    <string name="recent_usage_title">Most Recent Actual Usage</string>
+    <string name="recent_usage_subtitle">Real-time application activity sorted dynamically</string>
+    <string name="total_launches">Total Launches</string>
+    <string name="last_launched">Last Launched</string>
+    <string name="no_recent_activity">No recent activity recorded yet</string>
+    <string name="recently_active">Recently active</string>
+    <string name="minutes_used">%1$d mins used</string>
+
+    <!-- Studio Tab -->
+    <string name="floating_bubble_header">FLOATING BUBBLE</string>
+    <string name="studio_title">Bubble Customization Lab</string>
+    <string name="studio_subtitle">Design and style your unique floating action bubble</string>
+    <string name="presets">Presets</string>
+    <string name="canvas">Canvas</string>
+    <string name="live_bubble_preview">LIVE BUBBLE PREVIEW</string>
+    <string name="upload_custom_image">Upload Custom Image</string>
+    <string name="upload_custom_image_desc">Pick and crop picture from gallery for bubble</string>
+    <string name="bubble_vector_symbol">BUBBLE VECTOR SYMBOL</string>
+    <string name="inner_element_tint">INNER ELEMENT TINT</string>
+    <string name="bubble_size">Bubble Size</string>
+    <string name="opacity">Opacity</string>
+    <string name="glow_intensity">Glow Intensity</string>
+    <string name="border_stroke">Border Stroke</string>
+    <string name="theme_glow_palette">THEME GLOW PALETTE</string>
+    <string name="save_studio_config">Save Studio Configurations</string>
+    <string name="preset_library">Preset Bubble Styles</string>
+    <string name="creator_studio">Custom Creator Studio</string>
+    <string name="bubble_icon_symbol">Bubble Icon Symbol</string>
+    <string name="primary_color">Primary Color</string>
+    <string name="secondary_color">Secondary Color</string>
+    <string name="gradient_type">Gradient Pattern</string>
+    <string name="bubble_label_name">Bubble Name / Label</string>
+    <string name="live_preview">Live Interactive Preview</string>
+    <string name="canvas_painter">CANVAS PAINTER</string>
+    <string name="undo">Undo</string>
+    <string name="clear">Clear</string>
+    <string name="eraser_mode">Eraser Mode</string>
+    <string name="eraser_size">Eraser Size</string>
+    <string name="brush_thickness">Brush Thickness</string>
+    <string name="px_unit">%1$d px</string>
+    <string name="apply_drawing">Apply Drawing to Floating Bubble</string>
+    <string name="default_label">Default</string>
+    <string name="custom_tint">Custom Tint</string>
+
+    <!-- Tools Tab -->
+    <string name="tools_title">Floating Action &amp; App Management</string>
+    <string name="tools_subtitle">Enable, disable and reorder floating quick tools</string>
+    <string name="enabled_tools">Enabled Tools</string>
+    <string name="drag_reorder_hint">Use up/down controls to reorder tool position in menu</string>
+    <string name="launch_control_header">LAUNCH CONTROL · ORBIT</string>
+    <string name="tool_vault_name">Quick Vault</string>
+    <string name="tool_calc_name">Calculator</string>
+    <string name="tool_ocr_name">Camera OCR</string>
+    <string name="tool_dial_name">Speed Dial</string>
+    <string name="tool_launcher_name">App Launchpad</string>
+    <string name="tool_scanner_name">Screen Scanner</string>
+
+    <!-- Settings Tab -->
+    <string name="customize_theme">Customize Neon Theme Color</string>
+    <string name="theme_desc">Select your preferred neon accent color for the floating bubble and dashboard overlay</string>
+    <string name="bubble_size_title">Bubble Size Customization</string>
+    <string name="bubble_size_desc">Adjust the floating bubble size dynamically on the screen (30dp to 80dp)</string>
+    <string name="settings_permissions">Settings &amp; App Permissions</string>
+    <string name="display_over_apps">Display Over Other Apps</string>
+    <string name="display_over_apps_desc">Required to render the quick action floating bubble on top of active screens.</string>
+    <string name="usage_stats">System Usage Statistics</string>
+    <string name="usage_stats_desc">Required to identify and arrange your installed apps by frequency of actual usage.</string>
+    <string name="foreground_notifications">Foreground Notifications</string>
+    <string name="foreground_notifications_desc">Keeps the background overlay service running smoothly without system interruption.</string>
+    <string name="granted">Granted</string>
+    <string name="enable">Enable</string>
+    <string name="activate_permissions_warning">Please activate all the required permissions above to enable the background floating service.</string>
+    <string name="stop_service">Stop Floating Service</string>
+    <string name="start_service">Start Floating Service</string>
+    
+    <!-- Intro Sequence strings -->
+    <string name="intro_msg_1">hi :3</string>
+    <string name="intro_msg_2">I see you downloaded this, you\'re lazy aren\'t you?</string>
+    <string name="intro_msg_3">I hope you enjoy this &lt;3</string>
+    <string name="intro_next">Next</string>
+
+    <!-- Onboarding strings -->
+    <string name="onboarding_title">Welcome to Orbit</string>
+    <string name="onboarding_funny_tagline">This app is made for lazy people!</string>
+    <string name="onboarding_simple_desc">Orbit acts as a floating app launcher helper on your screen, letting you search and launch your favorite apps instantly with a single tap from anywhere.</string>
+    <string name="onboarding_privacy_note">Orbit runs 100% offline on your device, and your personal data never leaves your phone.</string>
+    <string name="onboarding_get_started">Get Started</string>
+    <string name="onboarding_skip_permissions">Skip Permissions</string>
+    <string name="choose_username">Choose Your Username</string>
+    <string name="username_hint">Supports emojis, symbols, spaces, &amp; fancy Unicode fonts (e.g. 𝑽𝑬𝑵𝑶𝑴, ♡)</string>
+    <string name="username_label">Username</string>
+
+    <!-- Language Switcher -->
+    <string name="select_language">Select Language / لغة / زبان</string>
+    <string name="continue_btn">Continue</string>
+
+    <!-- Change Username -->
+    <string name="change_username">Change Username</string>
+    <string name="current_username_prefix">Current: %1$s</string>
+    <string name="save_changes">Save Changes</string>
+    <string name="cancel">Cancel</string>
+    <string name="username_updated">Username updated!</string>
+    <string name="hello_username">Hello, %1$s</string>
+    <string name="utf8_support_hint">Supports UTF-8, emojis, &amp; special symbols</string>
+    <string name="enter_valid_username">Please enter a valid username.</string>
+
+    <!-- Additional UI strings -->
+    <string name="stats">STATS</string>
+    <string name="crop_floating_bubble">Crop Floating Bubble</string>
+    <string name="crop_guide_hint">Pinch to zoom • Drag to align inside neon circle</string>
+    <string name="editing_saved_note">Editing Saved Note...</string>
+    <string name="cancel_edit">Cancel Edit</string>
+    <string name="screen_optics">SCREEN OPTICS</string>
+    <string name="latin_only">[ English / Latin Only ]</string>
+    <string name="ocr_screen_capture">OCR Screen Capture</string>
+    <string name="ocr_downloading">Downloading OCR model (Latin)...</string>
+    <string name="ocr_not_ready">OCR model not ready. Tap to download.</string>
+    <string name="ocr_extract_desc">Extract any text visible on your device screen</string>
+    <string name="write_quick_note_hint">Write a quick note, idea, or paste text...</string>
+    <string name="update_note">Update Note</string>
+    <string name="save_note">Save Note</string>
+    <string name="vault_folders">Vault Folders</string>
+    <string name="folder_name_hint">Folder name (e.g. Work, Personal)</string>
+    <string name="root_folder_prefix">Root / %1$s</string>
+    <string name="vault_empty_msg">Vault is empty. Create a folder or save notes above!</string>
+    <string name="folder_empty_msg">This folder is empty. Save notes inside this folder above!</string>
+    <string name="root_notes">Root Notes</string>
+    <string name="screen_ocr_badge">SCREEN OCR</string>
+    <string name="manual_badge">MANUAL</string>
+    <string name="copied_to_clipboard">Copied to clipboard!</string>
+    <string name="floating_calculator">Floating Calculator</string>
+    <string name="calc_hint">Enter expression (e.g. 2 * (3 + 4.5))</string>
+    <string name="calc_result">Result</string>
+    <string name="calc_operators">Supported operators: + - * / ( ) .</string>
+    <string name="invalid_expression">Invalid Expression</string>
+    <string name="label_hint">Label (e.g. Google)</string>
+    <string name="url_hint">URL (e.g. google.com)</string>
+    <string name="speed_dial_links">Speed Dial Links</string>
+    <string name="no_links_yet">No saved links yet. Add your favorite websites above!</string>
+    <string name="invalid_link">Invalid link: %1$s</string>
+
+    <!-- Overlay strings -->
+    <string name="overlay_launchpad">Orbit Launchpad</string>
+    <string name="overlay_no_usage_permission">Usage Access permission is not enabled; apps sorted by real-time launches.</string>
+    <string name="overlay_no_usage_stats">No usage statistics found; apps sorted by real-time actual usage.</string>
+    <string name="overlay_most_used">Most Recent Actual Usage</string>
+    <string name="overlay_search_placeholder">Search apps...</string>
+    <string name="overlay_no_matching">No matching apps found</string>
+    <string name="overlay_favorites">Favorites ⭐</string>
+    <string name="overlay_cannot_open">Cannot open this application</string>
+    <string name="overlay_search_results">Search Results</string>
+    <string name="overlay_all_apps">All Applications</string>
+    <string name="overlay_close">Close</string>
+    <string name="permission_skip">Skip</string>
+    <string name="permission_skipped">Skipped</string>
+    <string name="ocr_best_results">OCR currently only supports English/Latin-script text.</string>
+    <string name="ocr_english_only">Text extraction currently supports English only.</string>
+
+    <!-- Toast & Dialog Strings -->
+    <string name="screen_capture_permission_denied">Screen capture permission denied.</string>
+    <string name="capture_failed">Capture failed: %1$s</string>
+    <string name="saved_to_vault_short">Saved to Vault: %1$s...</string>
+    <string name="ocr_failed">OCR failed: %1$s</string>
+    <string name="ocr_no_text">OCR: No text found in selected region</string>
+    <string name="floating_service_running_bg">Orbit is running in the background - Tap to show bubble</string>
+    <string name="floating_service_ready">Orbit floating launcher is active and ready.</string>
+    <string name="ocr_reading_screen_title">Orbit — Reading Screen</string>
+    <string name="ocr_reading_screen_text">Orbit is capturing a screen region for OCR. Your text stays on-device.</string>
+    <string name="display_overlay_perm_required">Unable to display overlay. Please check \'Display over other apps\' permission.</string>
+    <string name="drawing_saved_to_bubble">Drawing Saved to Bubble!</string>
+    <string name="failed_to_render_drawing">Failed to render drawing</string>
+    <string name="custom_bubble_image_applied">Custom Bubble Image Applied!</string>
+    <string name="failed_to_save_cropped">Failed to save cropped image</string>
+    <string name="studio_config_saved">Studio Configurations Saved!</string>
+    <!-- Additional Service & Tab keys -->
+    <string name="orbit_bg_running">Orbit is running in the background - Tap to show bubble</string>
+    <string name="orbit_launcher_active">Orbit floating launcher is active and ready.</string>
+    <string name="orbit_reading_screen">Orbit — Reading Screen</string>
+    <string name="orbit_ocr_desc">Orbit is capturing a screen region for OCR. Your text stays on-device.</string>
+    <string name="vault_desc">Notes &amp; secure clipboard drawer</string>
+    <string name="calc_desc">Floating math &amp; quick calculations</string>
+    <string name="ocr_desc">Scan physical text with camera feed</string>
+    <string name="dial_desc">Instant web shortcuts &amp; bookmarks</string>
+    <string name="tools_track_header">TRACK 02 · CORE</string>
+    <string name="select_language_desc">System display language</string>
+    <string name="welcome_to_orbit">WELCOME TO ORBIT</string>
+</resources>

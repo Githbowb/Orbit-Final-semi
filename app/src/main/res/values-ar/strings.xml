@@ -1,0 +1,225 @@
+<resources>
+    <string name="app_name">أوربت</string>
+    <string name="app_desc">تصفح وتشغيل تطبيقاتك الأكثر استخداماً بنقرة واحدة من أي شاشة</string>
+
+    <!-- Bottom Nav Tabs -->
+    <string name="tab_orbit">أوربت</string>
+    <string name="tab_vault">الخزنة</string>
+    <string name="tab_studio">الاستوديو</string>
+    <string name="tab_tools">الأدوات</string>
+    <string name="tab_setup">الإعدادات</string>
+    <string name="tab_settings">الإعدادات</string>
+
+    <string name="launch_control">التحكم بالإطلاق</string>
+    <string name="launch_control_orbit">التحكم بالإطلاق · أوربت</string>
+    <string name="in_orbit">في المدار</string>
+    <!-- System Performance Monitor -->
+    <string name="ram_monitor_title">أداء النظام والذاكرة</string>
+    <string name="ram_usage_label">استهلاك ذاكرة النظام</string>
+    <string name="ram_available_fmt">%1$.1f ج.ب متاح</string>
+    <string name="ram_total_fmt">%1$.1f ج.ب الإجمالي</string>
+    <string name="app_heap_fmt">%1$.1f م.ب</string>
+    <string name="ram_available_title">الذاكرة المتاحة</string>
+    <string name="ram_total_title">إجمالي الذاكرة</string>
+    <string name="app_heap_title">استهلاك التطبيق</string>
+    <string name="overlay_impact_title">تأثير الخدمة العائمة</string>
+    <string name="status_optimal_performance">أداء مثالي</string>
+    <string name="status_high_usage_warning">تحذير استهلاك عالي</string>
+    <string name="unit_free">متاح</string>
+    <string name="unit_total">الإجمالي</string>
+
+    <!-- Orbit Tab -->
+    <string name="orbit_dashboard_title">لوحة تحكم أوربت</string>
+    <string name="floating_service">الخدمة العائمة</string>
+    <string name="floating_service_status">خدمة الطبقة العائمة</string>
+    <string name="service_active">نشط و يعمل</string>
+    <string name="service_inactive">غير نشط</string>
+    <string name="bubble_size_dp">حجم الفقاعة (dp)</string>
+    <string name="launches_count">عدد المرات: %1$d</string>
+    <string name="recent_usage_title">الاستخدام الفعلي الأخير</string>
+    <string name="recent_usage_subtitle">نشاط التطبيقات المحدث في الوقت الفعلي</string>
+    <string name="total_launches">إجمالي الإطلاقات</string>
+    <string name="last_launched">آخر إطلاق</string>
+    <string name="no_recent_activity">لم يتم تسجيل أي نشاط مؤخراً</string>
+    <string name="recently_active">نشط مؤخراً</string>
+    <string name="minutes_used">مُستخدم %1$d دقيقة</string>
+
+    <!-- Studio Tab -->
+    <string name="floating_bubble_header">الفقاعة العائمة</string>
+    <string name="studio_title">استوديو تخصيص الفقاعة</string>
+    <string name="studio_subtitle">تصميم وتخصيص فقاعة الإجراءات العائمة الخاصة بك</string>
+    <string name="presets">القوالب</string>
+    <string name="canvas">القماش</string>
+    <string name="live_bubble_preview">معاينة الفقاعة المباشرة</string>
+    <string name="upload_custom_image">تحميل صورة مخصصة</string>
+    <string name="upload_custom_image_desc">اختر وقص صورة من المعرض للفقاعة</string>
+    <string name="bubble_vector_symbol">رمز الفقاعة المتجهي</string>
+    <string name="inner_element_tint">تلوين العنصر الداخلي</string>
+    <string name="bubble_size">حجم الفقاعة</string>
+    <string name="opacity">الشفافية</string>
+    <string name="glow_intensity">شدة التوهج</string>
+    <string name="border_stroke">سمك الإطار</string>
+    <string name="theme_glow_palette">لوحة توهج المظهر</string>
+    <string name="save_studio_config">حفظ إعدادات الاستوديو</string>
+    <string name="preset_library">أنماط الفقاعات الجاهزة</string>
+    <string name="creator_studio">استوديو التصميم المخصص</string>
+    <string name="bubble_icon_symbol">رمز أيقونة الفقاعة</string>
+    <string name="primary_color">اللون الرئيسي</string>
+    <string name="secondary_color">اللون الثانوي</string>
+    <string name="gradient_type">نمط التدرج</string>
+    <string name="bubble_label_name">اسم / تسمية الفقاعة</string>
+    <string name="live_preview">معاينة تفاعلية مباشرة</string>
+    <string name="canvas_painter">رسام القماش</string>
+    <string name="undo">تراجع</string>
+    <string name="clear">مسح</string>
+    <string name="eraser_mode">وضع الممحاة</string>
+    <string name="eraser_size">حجم الممحاة</string>
+    <string name="brush_thickness">سمك الفرشاة</string>
+    <string name="px_unit">%1$d بكسل</string>
+    <string name="apply_drawing">تطبيق الرسم على الفقاعة العائمة</string>
+    <string name="default_label">افتراضي</string>
+    <string name="custom_tint">تلوين مخصص</string>
+
+    <!-- Tools Tab -->
+    <string name="tools_title">إدارة الأدوات والتطبيقات العائمة</string>
+    <string name="tools_subtitle">تفعيل وتعطيل وإعادة ترتيب الأدوات السريعة العائمة</string>
+    <string name="enabled_tools">الأدوات المفعلة</string>
+    <string name="drag_reorder_hint">استخدم عناصر التحكم لأعلى/لأسفل لإعادة ترتيب الأداة</string>
+    <string name="launch_control_header">مركز التحكم · أوربت</string>
+    <string name="tool_vault_name">المخزن السريع</string>
+    <string name="tool_calc_name">الآلة الحاسبة</string>
+    <string name="tool_ocr_name">ماسح النصوص</string>
+    <string name="tool_dial_name">الاتصال السريع</string>
+    <string name="tool_launcher_name">مشغل التطبيقات</string>
+    <string name="tool_scanner_name">ماسح الشاشة</string>
+
+    <!-- Settings Tab -->
+    <string name="customize_theme">تخصيص لون النيون</string>
+    <string name="theme_desc">اختر لون النيون المفضل للفقاعة العائمة وشاشة التحكم</string>
+    <string name="bubble_size_title">تخصيص حجم الفقاعة</string>
+    <string name="bubble_size_desc">تعديل حجم الفقاعة العائمة ديناميكياً على الشاشة (من 30 إلى 80)</string>
+    <string name="settings_permissions">الإعدادات وأذونات التطبيق</string>
+    <string name="display_over_apps">الظهور فوق التطبيقات الأخرى</string>
+    <string name="display_over_apps_desc">مطلوب لعرض فقاعة الإجراءات السريعة فوق الشاشات النشطة.</string>
+    <string name="usage_stats">إحصائيات استخدام النظام</string>
+    <string name="usage_stats_desc">مطلوب للتعرف على تطبيقاتك المثبتة وترتيبها حسب الاستخدام الفعلي.</string>
+    <string name="foreground_notifications">إشعارات الخدمة</string>
+    <string name="foreground_notifications_desc">تحافظ على استمرار خدمة الطبقة العائمة في الخلفية بدون انقطاع.</string>
+    <string name="granted">ممنوح</string>
+    <string name="enable">تفعيل</string>
+    <string name="activate_permissions_warning">يرجى تفعيل جميع الأذونات المطلوبة أعلاه لتمكين الخدمة العائمة.</string>
+    <string name="stop_service">إيقاف الخدمة العائمة</string>
+    <string name="start_service">بدء الخدمة العائمة</string>
+    
+    <!-- Intro Sequence strings -->
+    <string name="intro_msg_1">مرحباً :3</string>
+    <string name="intro_msg_2">أرى أنك قمت بتنزيل هذا، أنت كسلان، أليس كذلك؟</string>
+    <string name="intro_msg_3">أتمنى أن تستمتع بهذا &lt;3</string>
+    <string name="intro_next">التالي</string>
+
+    <!-- Onboarding strings -->
+    <string name="onboarding_title">مرحباً بك في أوربت</string>
+    <string name="onboarding_funny_tagline">هذا التطبيق مصمم للأشخاص الكسالى!</string>
+    <string name="onboarding_simple_desc">يعمل أوربت كمساعد عائم على شاشتك، يتيح لك البحث وتشغيل تطبيقاتك المفضلة فوراً بنقرة واحدة من أي مكان.</string>
+    <string name="onboarding_privacy_note">يعمل أوربت 100% بدون إنترنت على جهازك، ولا تغادر بياناتك الشخصية هاتفك أبداً.</string>
+    <string name="onboarding_get_started">ابدأ الآن</string>
+    <string name="onboarding_skip_permissions">تخطي الأذونات</string>
+    <string name="choose_username">اختر اسم المستخدم الخاص بك</string>
+    <string name="username_hint">يدعم الرموز التعبيرية والرموز والمسافات والخطوط المميزة (مثل 𝑽𝑬𝑵𝑶𝑴، ♡)</string>
+    <string name="username_label">اسم المستخدم</string>
+
+    <!-- Language Switcher -->
+    <string name="select_language">Select Language / لغة / زبان</string>
+    <string name="continue_btn">متابعة</string>
+
+    <!-- Change Username -->
+    <string name="change_username">تغيير اسم المستخدم</string>
+    <string name="current_username_prefix">الحالي: %1$s</string>
+    <string name="save_changes">حفظ التغييرات</string>
+    <string name="cancel">إلغاء</string>
+    <string name="username_updated">تم تحديث اسم المستخدم!</string>
+    <string name="hello_username">مرحباً، %1$s</string>
+    <string name="utf8_support_hint">يدعم UTF-8، الرموز التعبيرية والرموز الخاصة</string>
+    <string name="enter_valid_username">يرجى إدخال اسم مستخدم صالحة.</string>
+
+    <!-- Additional UI strings -->
+    <string name="stats">الإحصائيات</string>
+    <string name="crop_floating_bubble">قص الفقاعة العائمة</string>
+    <string name="crop_guide_hint">قرّب للتكبير • اسحب للضبط داخل دائرة النيون</string>
+    <string name="editing_saved_note">جاري تعديل الملاحظة المحفوظة...</string>
+    <string name="cancel_edit">إلغاء التعديل</string>
+    <string name="screen_optics">بصريات الشاشة</string>
+    <string name="latin_only">[ الإنجليزية / اللاتينية فقط ]</string>
+    <string name="ocr_screen_capture">التقاط الشاشة للتعرف الضوئي</string>
+    <string name="ocr_downloading">جاري تحميل نموذج القارئ الضوئي (اللاتيني)...</string>
+    <string name="ocr_not_ready">نموذج القارئ الضوئي غير جاهز. انقر للتحميل.</string>
+    <string name="ocr_extract_desc">استخراج أي نص مرئي على شاشة جهازك</string>
+    <string name="write_quick_note_hint">اكتب ملاحظة سريعة، فكرة، أو الصق نصاً...</string>
+    <string name="update_note">تحديث الملاحظة</string>
+    <string name="save_note">حفظ الملاحظة</string>
+    <string name="vault_folders">مجلدات الخزنة</string>
+    <string name="folder_name_hint">اسم المجلد (مثال: العمل، الشخصي)</string>
+    <string name="root_folder_prefix">الرئيسي / %1$s</string>
+    <string name="vault_empty_msg">الخزنة فارغة. أنشئ مجلداً أو احفظ ملاحظات أعلاه!</string>
+    <string name="folder_empty_msg">هذا المجلد فارغ. احفظ ملاحظات داخل هذا المجلد أعلاه!</string>
+    <string name="root_notes">الملاحظات الرئيسية</string>
+    <string name="screen_ocr_badge">القارئ الضوئي للشاشة</string>
+    <string name="manual_badge">يدوي</string>
+    <string name="copied_to_clipboard">تم النسخ إلى الحافظة!</string>
+    <string name="floating_calculator">الحاسبة العائمة</string>
+    <string name="calc_hint">أدخل المعادلة (مثال: 2 * (3 + 4.5))</string>
+    <string name="calc_result">النتيجة</string>
+    <string name="calc_operators">العمليات المدعومة: + - * / ( ) .</string>
+    <string name="invalid_expression">معادلة غير صالحة</string>
+    <string name="label_hint">التسمية (مثال: جوجل)</string>
+    <string name="url_hint">الرابط (مثال: google.com)</string>
+    <string name="speed_dial_links">روابط الاتصال السريع</string>
+    <string name="no_links_yet">لا توجد روابط محفوظة بعد. أضف مواقعك المفضلة أعلاه!</string>
+    <string name="invalid_link">رابط غير صالحة: %1$s</string>
+
+    <!-- Overlay strings -->
+    <string name="overlay_launchpad">منصة أوربت</string>
+    <string name="overlay_no_usage_permission">إذن الوصول للاستخدام غير مفعل؛ تم ترتيب التطبيقات حسب التشغيل المباشر.</string>
+    <string name="overlay_no_usage_stats">لم يتم العثور على إحصائيات الاستخدام؛ تم ترتيب التطبيقات حسب الاستخدام الفعلي.</string>
+    <string name="overlay_most_used">الاستخدام الفعلي الأخير</string>
+    <string name="overlay_search_placeholder">البحث عن التطبيقات...</string>
+    <string name="overlay_no_matching">لم يتم العثور على تطبيقات مطابقة</string>
+    <string name="overlay_favorites">المفضلة ⭐</string>
+    <string name="overlay_cannot_open">تعذر فتح هذا التطبيق</string>
+    <string name="overlay_search_results">نتائج البحث</string>
+    <string name="overlay_all_apps">جميع التطبيقات</string>
+    <string name="overlay_close">إغلاق</string>
+    <string name="permission_skip">تخطي</string>
+    <string name="permission_skipped">تم التخطي</string>
+    <string name="ocr_best_results">يدعم القارئ الضوئي حالياً النصوص الإنجليزية/اللاتينية فقط.</string>
+    <string name="ocr_english_only">استخراج النصوص يدعم اللغة الإنجليزية فقط حالياً.</string>
+
+    <!-- Toast & Dialog Strings -->
+    <string name="screen_capture_permission_denied">تم رفض إذن التقاط الشاشة.</string>
+    <string name="capture_failed">فشل التقاط الشاشة: %1$s</string>
+    <string name="saved_to_vault_short">تم الحفظ في الخزنة: %1$s...</string>
+    <string name="ocr_failed">فشل التعرف الضوئي: %1$s</string>
+    <string name="ocr_no_text">التعرف الضوئي: لم يتم العثور على نص في المنطقة المحددة</string>
+    <string name="floating_service_running_bg">أوربت يعمل في الخلفية - انقر لإظهار الفقاعة</string>
+    <string name="floating_service_ready">مشغل أوربت العائم نشط وجاهز.</string>
+    <string name="ocr_reading_screen_title">أوربت — جاري قراءة الشاشة</string>
+    <string name="ocr_reading_screen_text">يقوم أوربت بتقاط منطقة من الشاشة للتعرف الضوئي. تبقى نصوصك على الجهاز.</string>
+    <string name="display_overlay_perm_required">تعذر إظهار الشاشة العائمة. يرجى التحقق من إذن \'الظهور فوق التطبيقات الأخرى\'.</string>
+    <string name="drawing_saved_to_bubble">تم حفظ الرسم في الفقاعة!</string>
+    <string name="failed_to_render_drawing">فشل معالجة الرسم</string>
+    <string name="custom_bubble_image_applied">تم تطبيق صورة الفقاعة المخصصة!</string>
+    <string name="failed_to_save_cropped">فشل حفظ الصورة المقصوصة</string>
+    <string name="studio_config_saved">تم حفظ إعدادات الاستوديو!</string>
+    <!-- Additional Service & Tab keys -->
+    <string name="orbit_bg_running">أوربت يعمل في الخلفية - انقر لإظهار الفقاعة</string>
+    <string name="orbit_launcher_active">مشغل أوربت العائم نشط وجاهز.</string>
+    <string name="orbit_reading_screen">أوربت — قراءة الشاشة</string>
+    <string name="orbit_ocr_desc">يقوم أوربت بالتقاط منطقة من الشاشة للتعرف الضوئي. نصوصك تبقى على جهازك.</string>
+    <string name="vault_desc">الملاحظات والحافظة الآمنة</string>
+    <string name="calc_desc">حاسبة عائمة وحسابات سريعة</string>
+    <string name="ocr_desc">مسح النصوص عبر الكاميرا</string>
+    <string name="dial_desc">اختصارات الويب والعلامات المرجعية</string>
+    <string name="tools_track_header">المسار 02 · الأساسي</string>
+    <string name="select_language_desc">لغة عرض النظام</string>
+    <string name="welcome_to_orbit">مرحباً بك في أوربت</string>
+</resources>
