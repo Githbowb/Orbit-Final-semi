@@ -206,6 +206,8 @@ fun FloatingWebViewContent(
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
                             setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                            isFocusable = true
+                            isFocusableInTouchMode = true
 
                             settings.apply {
                                 javaScriptEnabled = true
@@ -223,6 +225,15 @@ fun FloatingWebViewContent(
                             }
                             BrowserStateManager.setRetainedWebView(this)
                         }
+                    }
+
+                    webView.isFocusable = true
+                    webView.isFocusableInTouchMode = true
+                    webView.setOnTouchListener { v, _ ->
+                        if (!v.hasFocus()) {
+                            v.requestFocus()
+                        }
+                        false
                     }
 
                     // Configure Clients

@@ -47,6 +47,7 @@
             android:name=".OverlayActivity"
             android:exported="false"
             android:theme="@style/Theme.Translucent"
+            android:windowSoftInputMode="adjustResize|stateHidden"
             android:excludeFromRecents="true"
             android:launchMode="singleInstance" />
 

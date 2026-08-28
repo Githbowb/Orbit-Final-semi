@@ -87,6 +87,11 @@ class OverlayActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        
+        // Dynamically adjust for software keyboard (IME) and ensure focusability
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM)
+
         activeTabFlow.value = intent.getStringExtra("launch_tab")
 
         val currentLang = ThemePreferences.getLanguage(this)
@@ -385,7 +390,7 @@ fun OverlayScreen(onDismiss: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .then(if (!isScanOverlayVisible) Modifier.systemBarsPadding() else Modifier)
+            .then(if (!isScanOverlayVisible) Modifier.systemBarsPadding().imePadding() else Modifier)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
