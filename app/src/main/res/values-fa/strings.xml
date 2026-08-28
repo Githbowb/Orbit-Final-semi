@@ -254,4 +254,6 @@
     <string name="tools_track_header">بخش ۰۲ · اصلی</string>
     <string name="select_language_desc">زبان نمایش سیستم</string>
     <string name="welcome_to_orbit">به اوربیت خوش آمدید</string>
+    <string name="search_engine_title">موتور جستجو</string>
+    <string name="search_engine_desc">موتور جستجوی پیش‌فرض برای مرورگر شناور</string>
 </resources>

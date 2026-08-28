@@ -104,6 +104,7 @@ class FloatingLauncherService : Service() {
         const val ACTION_SHOW_BUBBLE = "com.example.ACTION_SHOW_BUBBLE"
         const val ACTION_HIDE_BUBBLE = "com.example.ACTION_HIDE_BUBBLE"
         const val ACTION_START_PROJECTION = "com.example.ACTION_START_PROJECTION"
+        const val ACTION_NOTIFICATION_DISMISSED = "com.example.ACTION_NOTIFICATION_DISMISSED"
 
         /**
          * New action: perform a single screen capture + OCR pass on the supplied region.
@@ -191,6 +192,23 @@ class FloatingLauncherService : Service() {
             }
             ACTION_CAPTURE_SCREEN -> {
                 handleCaptureScreenIntent(intent)
+            }
+            ACTION_NOTIFICATION_DISMISSED -> {
+                if (Settings.canDrawOverlays(this)) {
+                    val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    manager.notify(NOTIFICATION_ID, buildNotification(isBubbleHidden))
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        try {
+                            startForeground(
+                                NOTIFICATION_ID,
+                                buildNotification(isBubbleHidden),
+                                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                            )
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error re-attaching foreground notification", e)
+                        }
+                    }
+                }
             }
             else -> {
                 if (isBubbleHidden) {
@@ -1010,6 +1028,16 @@ private class BubbleBackgroundDrawable(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val deleteIntent = Intent(this, FloatingLauncherService::class.java).apply {
+            action = ACTION_NOTIFICATION_DISMISSED
+        }
+        val deletePendingIntent = PendingIntent.getService(
+            this,
+            2,
+            deleteIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         val title = getString(R.string.app_name)
         val text = if (isBackgroundMode) {
             getString(R.string.orbit_bg_running)
@@ -1022,7 +1050,9 @@ private class BubbleBackgroundDrawable(
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_dialog_dialer)
             .setContentIntent(pendingIntent)
+            .setDeleteIntent(deletePendingIntent)
             .setOngoing(true)
+            .setAutoCancel(false)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
     }
@@ -1109,6 +1139,31 @@ private class BubbleBackgroundDrawable(
         bubbleImageView = null
         windowManager = null
         isViewAdded = false
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        if (Settings.canDrawOverlays(this)) {
+            try {
+                val restartServiceIntent = Intent(applicationContext, FloatingLauncherService::class.java).also {
+                    it.setPackage(packageName)
+                }
+                val restartServicePendingIntent = PendingIntent.getService(
+                    this,
+                    1,
+                    restartServiceIntent,
+                    PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val alarmService = getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
+                alarmService?.set(
+                    android.app.AlarmManager.ELAPSED_REALTIME,
+                    android.os.SystemClock.elapsedRealtime() + 1000,
+                    restartServicePendingIntent
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error scheduling service restart in onTaskRemoved", e)
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? {

@@ -19,7 +19,10 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -76,9 +79,10 @@ fun TabSwitcherBar(
     Row(
         modifier = Modifier
             .fillOuterWidth()
-            .height(58.dp)
-            .background(Color(0x0CFFFFFF), RoundedCornerShape(14.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
+            .height(56.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF0E1220))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -89,12 +93,23 @@ fun TabSwitcherBar(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSelected) accentColor.copy(alpha = 0.22f) else Color.Transparent)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (isSelected) {
+                            Brush.verticalGradient(
+                                listOf(
+                                    accentColor.copy(alpha = 0.28f),
+                                    accentColor.copy(alpha = 0.10f)
+                                )
+                            )
+                        } else {
+                            Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
+                        }
+                    )
                     .border(
                         1.dp,
-                        if (isSelected) accentColor.copy(alpha = 0.45f) else Color.Transparent,
-                        RoundedCornerShape(10.dp)
+                        if (isSelected) accentColor.copy(alpha = 0.55f) else Color.Transparent,
+                        RoundedCornerShape(12.dp)
                     )
                     .clickable { onTabSelected(tab) }
                     .padding(horizontal = 2.dp, vertical = 4.dp),
@@ -108,15 +123,15 @@ fun TabSwitcherBar(
                     Icon(
                         imageVector = icon,
                         contentDescription = label,
-                        tint = if (isSelected) accentColor else TextSecondary.copy(alpha = 0.85f),
+                        tint = if (isSelected) accentColor else TextSecondary.copy(alpha = 0.75f),
                         modifier = Modifier.size(19.dp)
                     )
                     Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = label,
                         fontSize = 10.5.sp,
-                        fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                        color = if (isSelected) accentColor else TextSecondary,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                        color = if (isSelected) Color.White else TextSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -147,15 +162,17 @@ fun LauncherTabContent(
     val context = LocalContext.current
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Sorting Subtitle / Explanation
+        // Sorting Subtitle / Explanation Banner
         if (sortedAlphabetically && searchQuery.isEmpty()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0x11FF1744), RoundedCornerShape(8.dp))
-                    .padding(8.dp),
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0x18FF3B30))
+                    .border(1.dp, Color(0xFFFF3B30).copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
@@ -163,57 +180,137 @@ fun LauncherTabContent(
                     imageVector = Icons.Default.Info,
                     contentDescription = "Alert",
                     tint = Color(0xFFFF4D4D),
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(15.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = explanationReason,
                     color = Color(0xFFFFB3B3),
                     fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f)
                 )
             }
         } else if (searchQuery.isEmpty()) {
-            Text(
-                text = stringResource(id = R.string.overlay_most_used),
-                color = TextSecondary,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(5.dp)
+                        .clip(CircleShape)
+                        .background(accentColor.copy(alpha = 0.7f))
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = stringResource(id = R.string.overlay_most_used),
+                    color = TextSecondary.copy(alpha = 0.9f),
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.3.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Futuristic Search Bar Input Field
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    brush = Brush.horizontalGradient(
+                        listOf(
+                            accentColor.copy(alpha = 0.4f),
+                            Color.White.copy(alpha = 0.08f)
+                        )
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                )
+        ) {
+            TextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                placeholder = {
+                    Text(
+                        stringResource(id = R.string.overlay_search_placeholder),
+                        color = TextSecondary.copy(alpha = 0.7f),
+                        fontSize = 13.5.sp
+                    )
+                },
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color(0xFF131728),
+                    unfocusedContainerColor = Color(0xFF101322),
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .clip(RoundedCornerShape(14.dp)),
+                singleLine = true,
+                leadingIcon = {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(accentColor.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = accentColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(end = 6.dp)
+                        ) {
+                            // Match Count Badge Chip
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(accentColor.copy(alpha = 0.18f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "${filteredApps.size}",
+                                    color = accentColor,
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            IconButton(
+                                onClick = { onSearchQueryChange("") },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear search",
+                                    tint = TextSecondary,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Search Bar Input Field
-        TextField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChange,
-            placeholder = { Text(stringResource(id = R.string.overlay_search_placeholder), color = TextSecondary, fontSize = 14.sp) },
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color(0x1400E5FF),
-                unfocusedContainerColor = Color(0x0AFFFFFF),
-                focusedIndicatorColor = accentColor,
-                unfocusedIndicatorColor = Color.Transparent,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .clip(RoundedCornerShape(12.dp)),
-            singleLine = true,
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = accentColor
-                )
-            }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         if (isLoading) {
             Box(
@@ -222,7 +319,13 @@ fun LauncherTabContent(
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = accentColor)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(
+                        color = accentColor,
+                        modifier = Modifier.size(36.dp),
+                        strokeWidth = 3.dp
+                    )
+                }
             }
         } else if (filteredApps.isEmpty()) {
             Box(
@@ -231,11 +334,33 @@ fun LauncherTabContent(
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = stringResource(id = R.string.overlay_no_matching),
-                    color = TextSecondary,
-                    fontSize = 14.sp
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(accentColor.copy(alpha = 0.10f))
+                            .border(1.dp, accentColor.copy(alpha = 0.25f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = accentColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = stringResource(id = R.string.overlay_no_matching),
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         } else {
             // Unified Grid using span support to build clean Sections (Favorites vs Regular Apps)
@@ -244,25 +369,56 @@ fun LauncherTabContent(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(bottom = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // Section: Favorites (Show only when not searching)
                 if (favoriteApps.isNotEmpty() && searchQuery.isEmpty()) {
                     item(span = { GridItemSpan(4) }) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                            modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
                         ) {
-                            Text(
-                                text = stringResource(id = R.string.overlay_favorites),
-                                color = accentColor,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFFD600))
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(id = R.string.overlay_favorites).uppercase(),
+                                color = Color(0xFFFFD600),
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.3.sp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFFFFD600).copy(alpha = 0.15f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "${favoriteApps.size}",
+                                    color = Color(0xFFFFD600),
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                             Spacer(modifier = Modifier.width(8.dp))
-                            HorizontalDivider(
-                                color = accentColor.copy(alpha = 0.2f),
-                                modifier = Modifier.weight(1f)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(1.dp)
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(
+                                                Color(0xFFFFD600).copy(alpha = 0.4f),
+                                                Color.Transparent
+                                            )
+                                        )
+                                    )
                             )
                         }
                     }
@@ -287,7 +443,7 @@ fun LauncherTabContent(
                     }
 
                     item(span = { GridItemSpan(4) }) {
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                     }
                 }
 
@@ -295,18 +451,49 @@ fun LauncherTabContent(
                 item(span = { GridItemSpan(4) }) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 4.dp)
+                        modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
                     ) {
-                        Text(
-                            text = if (searchQuery.isNotEmpty()) stringResource(id = R.string.overlay_search_results) else stringResource(id = R.string.overlay_all_apps),
-                            color = accentColor,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(accentColor)
                         )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (searchQuery.isNotEmpty()) stringResource(id = R.string.overlay_search_results).uppercase() else stringResource(id = R.string.overlay_all_apps).uppercase(),
+                            color = accentColor,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.3.sp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(accentColor.copy(alpha = 0.15f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "${regularApps.size}",
+                                color = accentColor,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                         Spacer(modifier = Modifier.width(8.dp))
-                        HorizontalDivider(
-                            color = accentColor.copy(alpha = 0.2f),
-                            modifier = Modifier.weight(1f)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(1.dp)
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            accentColor.copy(alpha = 0.4f),
+                                            Color.Transparent
+                                        )
+                                    )
+                                )
                         )
                     }
                 }
@@ -1194,15 +1381,9 @@ fun SpeedDialTabContent(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = stringResource(id = R.string.speed_dial_links),
-                color = accentColor,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
             Text(
                 text = stringResource(id = R.string.browser_long_press_hint),
                 color = TextSecondary,
@@ -1245,12 +1426,25 @@ fun SpeedDialTabContent(
                             entry.url
                         }
                     }
+                    val itemInteractionSource = remember { MutableInteractionSource() }
+                    val isItemPressed by itemInteractionSource.collectIsPressedAsState()
+                    val itemScale by animateFloatAsState(
+                        targetValue = if (isItemPressed) 0.88f else 1f,
+                        animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
+                        label = "SpeedDialPressScale"
+                    )
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .graphicsLayer {
+                                scaleX = itemScale
+                                scaleY = itemScale
+                            }
+                            .clip(RoundedCornerShape(16.dp))
                             .combinedClickable(
+                                interactionSource = itemInteractionSource,
+                                indication = null,
                                 onClick = {
                                     // Single Tap: Open URL inside Floating WebView
                                     onOpenInFloatingWebView(formattedUrl)
@@ -1276,21 +1470,34 @@ fun SpeedDialTabContent(
                                     }
                                 }
                             )
-                            .padding(4.dp)
+                            .padding(horizontal = 2.dp, vertical = 2.dp)
                     ) {
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Link Icon styling matches app-grid item
+                            // Link Icon styling matches app-grid squircle
                             Box(
                                 modifier = Modifier
-                                    .size(48.dp)
-                                    .background(Color(0x0A00E5FF), RoundedCornerShape(12.dp))
+                                    .size(54.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(
+                                                Color(0xFF1B2032),
+                                                Color(0xFF101320)
+                                            )
+                                        )
+                                    )
                                     .border(
                                         width = 1.dp,
-                                        color = accentColor.copy(alpha = 0.3f),
-                                        shape = RoundedCornerShape(12.dp)
+                                        brush = Brush.verticalGradient(
+                                            listOf(
+                                                accentColor.copy(alpha = 0.5f),
+                                                Color.White.copy(alpha = 0.05f)
+                                            )
+                                        ),
+                                        shape = RoundedCornerShape(16.dp)
                                     )
                                     .padding(4.dp),
                                 contentAlignment = Alignment.Center
@@ -1300,7 +1507,7 @@ fun SpeedDialTabContent(
                                 Text(
                                     text = letter.toString(),
                                     color = accentColor,
-                                    fontSize = 18.sp,
+                                    fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -1310,11 +1517,12 @@ fun SpeedDialTabContent(
                             // Link label text
                             Text(
                                 text = entry.label,
-                                fontSize = 11.sp,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 textAlign = TextAlign.Center,
-                                color = Color.White,
+                                color = Color(0xFFD6DBE8),
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -1323,17 +1531,18 @@ fun SpeedDialTabContent(
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .offset(x = 6.dp, y = (-6).dp)
+                                .offset(x = 4.dp, y = (-4).dp)
                                 .size(22.dp)
-                                .background(Color(0xFF151D33), RoundedCornerShape(11.dp))
-                                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(11.dp))
+                                .clip(CircleShape)
+                                .background(Color(0xFF261214))
+                                .border(1.dp, Color(0xFFFF4D4D).copy(alpha = 0.4f), CircleShape)
                                 .clickable { onDeleteLink(entry) },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Delete",
-                                tint = Color(0xFFFF4D4D),
+                                tint = Color(0xFFFF6B6B),
                                 modifier = Modifier.size(12.dp)
                             )
                         }

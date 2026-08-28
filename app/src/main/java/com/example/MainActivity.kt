@@ -2477,7 +2477,8 @@ fun ToolsTabContent(context: Context, accentColor: Color) {
         Triple(stringResource(id = R.string.tool_vault_name), stringResource(id = R.string.vault_desc), ToolsPreferences.KEY_VAULT) to Icons.Default.Lock,
         Triple(stringResource(id = R.string.tool_calc_name), stringResource(id = R.string.calc_desc), ToolsPreferences.KEY_CALCULATOR) to Icons.Default.Calculate,
         Triple(stringResource(id = R.string.tool_ocr_name), stringResource(id = R.string.ocr_desc), ToolsPreferences.KEY_OCR) to Icons.Default.CameraAlt,
-        Triple(stringResource(id = R.string.tool_dial_name), stringResource(id = R.string.dial_desc), ToolsPreferences.KEY_SPEED_DIAL) to Icons.Default.Link
+        Triple(stringResource(id = R.string.tool_dial_name), stringResource(id = R.string.dial_desc), ToolsPreferences.KEY_SPEED_DIAL) to Icons.Default.Link,
+        Triple(stringResource(id = R.string.tool_browser_name), stringResource(id = R.string.browser_desc), ToolsPreferences.KEY_BROWSER) to Icons.Default.Language
     )
 
     Column(
@@ -2617,6 +2618,8 @@ fun SettingsTabContent(
     val isServiceRunning by FloatingLauncherService.isServiceRunning.collectAsState()
 
     var showChangeUsernameDialog by remember { mutableStateOf(false) }
+    var selectedEngine by remember { mutableStateOf(SearchEnginePreferences.getSelectedEngine(context)) }
+    var showSearchEngineDialog by remember { mutableStateOf(false) }
 
     if (showChangeUsernameDialog) {
         ChangeUsernameDialog(
@@ -2627,6 +2630,19 @@ fun SettingsTabContent(
                 onUsernameChanged(newName)
                 showChangeUsernameDialog = false
                 Toast.makeText(context, "Username updated!", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    if (showSearchEngineDialog) {
+        SearchEngineDialog(
+            selectedEngineId = selectedEngine.id,
+            onDismiss = { showSearchEngineDialog = false },
+            onSelectEngine = { newEngine ->
+                SearchEnginePreferences.setSelectedEngine(context, newEngine.id)
+                selectedEngine = newEngine
+                showSearchEngineDialog = false
+                Toast.makeText(context, "${newEngine.name} selected", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -2854,6 +2870,37 @@ fun SettingsTabContent(
                     }
                 }
             }
+
+            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+
+            // Search Engine Selector Row
+            SetupOptionRow(
+                title = stringResource(id = R.string.search_engine_title),
+                subtitle = selectedEngine.name,
+                icon = Icons.Default.Search,
+                iconColor = signalOrange,
+                iconBgColor = signalOrange.copy(alpha = 0.15f),
+                onClick = { showSearchEngineDialog = true },
+                trailingContent = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = selectedEngine.name,
+                            color = signalOrange,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = inkDim,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            )
 
             HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
 
@@ -3441,5 +3488,90 @@ fun ChangeUsernameDialog(
             }
         }
     }
+}
+
+@Composable
+fun SearchEngineDialog(
+    selectedEngineId: String,
+    onDismiss: () -> Unit,
+    onSelectEngine: (SearchEngine) -> Unit
+) {
+    val signalOrange = Color(0xFFFF6B35)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(id = R.string.search_engine_title),
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = stringResource(id = R.string.search_engine_desc),
+                    color = Color(0xFF8E94A8),
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                SearchEnginePreferences.ENGINES.forEach { engine ->
+                    val isSelected = engine.id == selectedEngineId
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isSelected) signalOrange.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.04f))
+                            .border(
+                                1.dp,
+                                if (isSelected) signalOrange.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.08f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .clickable {
+                                onSelectEngine(engine)
+                            }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = engine.name,
+                                color = if (isSelected) signalOrange else Color.White,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = engine.homeUrl.removePrefix("https://").removePrefix("www."),
+                                color = Color(0xFF5A6178),
+                                fontSize = 11.sp
+                            )
+                        }
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "Selected",
+                                tint = signalOrange,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(id = R.string.cancel), color = signalOrange, fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = Color(0xFF161722),
+        shape = RoundedCornerShape(18.dp)
+    )
 }
 

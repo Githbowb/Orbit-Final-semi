@@ -229,6 +229,8 @@
     <string name="browser_open_external">Open in Default Browser</string>
     <string name="browser_desktop_mode">Desktop Mode</string>
     <string name="browser_mobile_mode">Mobile Mode</string>
+    <string name="browser_home">Home</string>
+    <string name="browser_reset_home">Reset to Home Screen</string>
     <string name="browser_long_press_hint">Tap: Open in Floating WebView • Long-press: Open in Default Browser</string>
 
     <!-- Studio My Collection strings -->
@@ -259,4 +261,6 @@
     <string name="tools_track_header">TRACK 02 · CORE</string>
     <string name="select_language_desc">System display language</string>
     <string name="welcome_to_orbit">WELCOME TO ORBIT</string>
+    <string name="search_engine_title">Search Engine</string>
+    <string name="search_engine_desc">Default search provider for floating browser</string>
 </resources>

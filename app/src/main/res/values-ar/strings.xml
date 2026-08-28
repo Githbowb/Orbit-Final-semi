@@ -254,4 +254,6 @@
     <string name="tools_track_header">المسار 02 · الأساسي</string>
     <string name="select_language_desc">لغة عرض النظام</string>
     <string name="welcome_to_orbit">مرحباً بك في أوربت</string>
+    <string name="search_engine_title">محرك البحث</string>
+    <string name="search_engine_desc">محرك البحث الافتراضي للمتصفح العائم</string>
 </resources>
