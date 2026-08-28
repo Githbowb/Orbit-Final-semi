@@ -41,4 +41,26 @@ class OrbitRepository(private val database: OrbitDatabase) {
     suspend fun deleteSpeedDialEntry(entry: SpeedDialEntry) {
         database.speedDialDao().delete(entry)
     }
+
+    val studioArtworks: Flow<List<ArtworkEntry>> = database.studioArtworkDao().getAllArtworks()
+
+    suspend fun getArtworkById(id: Long): ArtworkEntry? {
+        return database.studioArtworkDao().getArtworkById(id)
+    }
+
+    suspend fun getArtworkCount(): Int {
+        return database.studioArtworkDao().getArtworkCount()
+    }
+
+    suspend fun insertArtwork(artwork: ArtworkEntry): Long {
+        return database.studioArtworkDao().insert(artwork)
+    }
+
+    suspend fun updateArtwork(artwork: ArtworkEntry) {
+        database.studioArtworkDao().update(artwork)
+    }
+
+    suspend fun deleteArtwork(artwork: ArtworkEntry) {
+        database.studioArtworkDao().delete(artwork)
+    }
 }

@@ -20,17 +20,24 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -42,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -159,16 +167,6 @@ fun OverlayScreen(onDismiss: () -> Unit) {
     // Tab Selection state
     var selectedTab by rememberSaveable { mutableStateOf(OrbitTab.LAUNCHER) }
 
-    // Observe activeTabFlow to switch tabs dynamically
-    val activeTabExtra by OverlayActivity.activeTabFlow.collectAsState()
-    LaunchedEffect(activeTabExtra) {
-        if (activeTabExtra == "vault") {
-            selectedTab = OrbitTab.VAULT
-            ToolsPreferences.incrementLaunchCount(context, ToolsPreferences.KEY_VAULT)
-            OverlayActivity.activeTabFlow.value = null // Consume extra
-        }
-    }
-
     // Launcher tab states
     var appsList by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -245,7 +243,49 @@ fun OverlayScreen(onDismiss: () -> Unit) {
     var speedDialUrlText by rememberSaveable { mutableStateOf("") }
     val speedDialEntries by repository.speedDialEntries.collectAsState(initial = emptyList())
 
+    // Floating Browser tab states
+    var activeBrowserUrl by rememberSaveable { mutableStateOf("https://www.google.com") }
 
+    // Dynamic Window Resizing & Maximize states (specifically for Browser tab)
+    var isMaximized by rememberSaveable { mutableStateOf(false) }
+
+    // Auto-collapse maximize mode whenever switching away from Browser tab
+    LaunchedEffect(selectedTab) {
+        if (selectedTab != OrbitTab.BROWSER) {
+            isMaximized = false
+        }
+    }
+
+    val animatedWidthFraction by animateFloatAsState(
+        targetValue = if (isMaximized && selectedTab == OrbitTab.BROWSER) 0.96f else 0.92f,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+        ),
+        label = "windowWidth"
+    )
+    val animatedHeightFraction by animateFloatAsState(
+        targetValue = if (isMaximized && selectedTab == OrbitTab.BROWSER) 0.88f else 0.82f,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+        ),
+        label = "windowHeight"
+    )
+
+    // Observe activeTabFlow to switch tabs dynamically
+    val activeTabExtra by OverlayActivity.activeTabFlow.collectAsState()
+    LaunchedEffect(activeTabExtra) {
+        if (activeTabExtra == "vault") {
+            selectedTab = OrbitTab.VAULT
+            ToolsPreferences.incrementLaunchCount(context, ToolsPreferences.KEY_VAULT)
+            OverlayActivity.activeTabFlow.value = null // Consume extra
+        } else if (activeTabExtra == "browser") {
+            selectedTab = OrbitTab.BROWSER
+            ToolsPreferences.incrementLaunchCount(context, ToolsPreferences.KEY_BROWSER)
+            OverlayActivity.activeTabFlow.value = null
+        }
+    }
 
     // Load Vault active composition draft from Room on startup
     LaunchedEffect(Unit) {
@@ -346,64 +386,148 @@ fun OverlayScreen(onDismiss: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         if (!isScanOverlayVisible) {
-            // App Grid Container Card
+            // App Grid Container Card with Dynamic Sizing and Maximize support
             Card(
-            modifier = Modifier
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    this.alpha = alpha
-                }
-                .fillMaxWidth(0.92f)
-                .fillMaxHeight(0.82f) // slightly taller to accommodate favorites and search bar
-                .border(2.dp, accentColor, RoundedCornerShape(24.dp))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    // Prevent dismissal when clicking inside the card
-                },
-            colors = CardDefaults.cardColors(containerColor = CardDark),
-            shape = RoundedCornerShape(24.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
-        ) {
-            Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(18.dp)
-            ) {
-                // Header Title
-                Text(
-                    text = stringResource(id = R.string.overlay_launchpad),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = accentColor,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Feature 4: Tab switcher bar below the title
-                TabSwitcherBar(
-                    selectedTab = selectedTab,
-                    onTabSelected = { tab ->
-                        selectedTab = tab
-                        val key = when (tab) {
-                            OrbitTab.LAUNCHER -> ToolsPreferences.KEY_LAUNCHPAD
-                            OrbitTab.VAULT -> ToolsPreferences.KEY_VAULT
-                            OrbitTab.CALCULATOR -> ToolsPreferences.KEY_CALCULATOR
-                            OrbitTab.SPEED_DIAL -> ToolsPreferences.KEY_SPEED_DIAL
-                        }
-                        ToolsPreferences.incrementLaunchCount(context, key)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        this.alpha = alpha
+                    }
+                    .fillMaxWidth(animatedWidthFraction)
+                    .fillMaxHeight(animatedHeightFraction)
+                    .widthIn(max = if (isMaximized && selectedTab == OrbitTab.BROWSER) 850.dp else 600.dp)
+                    .border(
+                        1.5.dp,
+                        accentColor.copy(alpha = if (isMaximized) 0.6f else 0.85f),
+                        RoundedCornerShape(if (isMaximized && selectedTab == OrbitTab.BROWSER) 20.dp else 22.dp)
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        // Prevent dismissal when clicking inside the card
                     },
-                    accentColor = accentColor
-                )
+                colors = CardDefaults.cardColors(containerColor = CardDark),
+                shape = RoundedCornerShape(if (isMaximized && selectedTab == OrbitTab.BROWSER) 20.dp else 22.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 18.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(
+                                horizontal = if (selectedTab == OrbitTab.BROWSER) 14.dp else 18.dp,
+                                vertical = if (selectedTab == OrbitTab.BROWSER) 10.dp else 16.dp
+                            )
+                    ) {
+                        // Top Header Bar: Clean Centered Title for standard tabs; Dynamic Controls for Browser tab
+                        if (selectedTab == OrbitTab.BROWSER) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(30.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(7.dp)
+                                            .background(accentColor, CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(7.dp))
+                                    Text(
+                                        text = stringResource(id = R.string.overlay_launchpad),
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.White.copy(alpha = 0.95f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        letterSpacing = 0.3.sp
+                                    )
+                                }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    // Maximize / Restore Button
+                                    IconButton(
+                                        onClick = { isMaximized = !isMaximized },
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape)
+                                            .background(accentColor.copy(alpha = 0.15f))
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isMaximized) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                            contentDescription = if (isMaximized) stringResource(R.string.overlay_restore) else stringResource(R.string.overlay_maximize),
+                                            tint = accentColor,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                    }
 
-                // Tab Content Switcher with exact visibility conditions
-                Box(modifier = Modifier.weight(1f)) {
+                                    // Close Button (X)
+                                    IconButton(
+                                        onClick = { animateDismiss() },
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.08f))
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = stringResource(R.string.overlay_close),
+                                            tint = Color.White.copy(alpha = 0.85f),
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            // Standard Views: Pure Clean Centered Title (no X or Maximize buttons)
+                            Text(
+                                text = stringResource(id = R.string.overlay_launchpad),
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = accentColor,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 2.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Tab switcher bar
+                        TabSwitcherBar(
+                            selectedTab = selectedTab,
+                            onTabSelected = { tab ->
+                                if (tab != OrbitTab.BROWSER) {
+                                    isMaximized = false
+                                }
+                                selectedTab = tab
+                                val key = when (tab) {
+                                    OrbitTab.LAUNCHER -> ToolsPreferences.KEY_LAUNCHPAD
+                                    OrbitTab.VAULT -> ToolsPreferences.KEY_VAULT
+                                    OrbitTab.CALCULATOR -> ToolsPreferences.KEY_CALCULATOR
+                                    OrbitTab.SPEED_DIAL -> ToolsPreferences.KEY_SPEED_DIAL
+                                    OrbitTab.BROWSER -> ToolsPreferences.KEY_BROWSER
+                                }
+                                ToolsPreferences.incrementLaunchCount(context, key)
+                            },
+                            accentColor = accentColor
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Tab Content Switcher with maximum available vertical height
+                        Box(modifier = Modifier.weight(1f)) {
                     when (selectedTab) {
                         OrbitTab.LAUNCHER -> {
                             LauncherTabContent(
@@ -546,27 +670,46 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                                         repository.deleteSpeedDialEntry(entry)
                                     }
                                 },
-                                accentColor = accentColor
+                                accentColor = accentColor,
+                                onOpenInFloatingWebView = { url ->
+                                    activeBrowserUrl = url
+                                    selectedTab = OrbitTab.BROWSER
+                                    ToolsPreferences.incrementLaunchCount(context, ToolsPreferences.KEY_BROWSER)
+                                }
+                            )
+                        }
+                        OrbitTab.BROWSER -> {
+                            FloatingWebViewContent(
+                                initialUrl = activeBrowserUrl,
+                                accentColor = accentColor,
+                                isMaximized = isMaximized,
+                                onToggleMaximize = { isMaximized = !isMaximized }
                             )
                         }
                     }
-                }
+                        }
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Close Button
-                Button(
-                    onClick = { animateDismiss() },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, TextSecondary.copy(alpha = 0.4f), RoundedCornerShape(12.dp)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(stringResource(id = R.string.overlay_close), color = TextSecondary, fontSize = 14.sp)
+                        // Bottom Action Bar: Fixed full-width Close Button for standard non-Browser tabs
+                        if (selectedTab != OrbitTab.BROWSER) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Button(
+                                onClick = { animateDismiss() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, TextSecondary.copy(alpha = 0.4f), RoundedCornerShape(12.dp)),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    stringResource(id = R.string.overlay_close),
+                                    color = TextSecondary,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
                 }
             }
-        }
         }
 
         // ----------------------------------------------------------------

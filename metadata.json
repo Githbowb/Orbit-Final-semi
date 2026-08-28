@@ -1,0 +1,6 @@
+{
+  "name": "Orbit",
+  "description": "Browse and launch your most used apps with a single tap from any screen",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

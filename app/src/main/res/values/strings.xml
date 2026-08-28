@@ -179,6 +179,9 @@
 
     <!-- Overlay strings -->
     <string name="overlay_launchpad">Orbit Launchpad</string>
+    <string name="overlay_maximize">Maximize window</string>
+    <string name="overlay_restore">Restore size</string>
+    <string name="overlay_resize_hint">Drag handle to resize window</string>
     <string name="overlay_no_usage_permission">Usage Access permission is not enabled; apps sorted by real-time launches.</string>
     <string name="overlay_no_usage_stats">No usage statistics found; apps sorted by real-time actual usage.</string>
     <string name="overlay_most_used">Most Recent Actual Usage</string>
@@ -219,6 +222,40 @@
     <string name="calc_desc">Floating math &amp; quick calculations</string>
     <string name="ocr_desc">Scan physical text with camera feed</string>
     <string name="dial_desc">Instant web shortcuts &amp; bookmarks</string>
+    <string name="tool_browser_name">Browser</string>
+    <string name="browser_desc">Lightweight floating web browser</string>
+    <string name="browser_search_placeholder">Search or enter website address...</string>
+    <string name="browser_load_error">Failed to load webpage</string>
+    <string name="browser_open_external">Open in Default Browser</string>
+    <string name="browser_desktop_mode">Desktop Mode</string>
+    <string name="browser_mobile_mode">Mobile Mode</string>
+    <string name="browser_long_press_hint">Tap: Open in Floating WebView • Long-press: Open in Default Browser</string>
+
+    <!-- Studio My Collection strings -->
+    <string name="tab_collection">Collection</string>
+    <string name="saved_to_collection">Saved to My Collection!</string>
+    <string name="my_collection">My Collection</string>
+    <string name="my_collection_subtitle">Local visual gallery of your canvas drawings and custom artwork</string>
+    <string name="collection_empty_title">Your Collection is Empty</string>
+    <string name="collection_empty_desc">Create art in Canvas Painter or upload custom photos to build your visual collection!</string>
+    <string name="apply_as_bubble">Apply to Floating Bubble</string>
+    <string name="applied_to_bubble">Applied as active floating bubble!</string>
+    <string name="share_artwork">Share Artwork</string>
+    <string name="export_to_gallery">Export to Gallery</string>
+    <string name="export_success">Artwork exported to device storage!</string>
+    <string name="export_failed">Failed to export artwork</string>
+    <string name="edit_in_canvas">Edit in Canvas Painter</string>
+    <string name="delete_artwork">Delete Artwork</string>
+    <string name="delete_artwork_confirm">Are you sure you want to delete this artwork? This cannot be undone.</string>
+    <string name="save_to_collection">Save to My Collection</string>
+    <string name="save_and_apply">Save &amp; Apply to Bubble</string>
+    <string name="artwork_title_prompt">Artwork Title</string>
+    <string name="artwork_title_hint">e.g. Neon Horizon, Cyber Core</string>
+    <string name="artwork_saved_to_collection">Saved to My Collection!</string>
+    <string name="filter_all">All</string>
+    <string name="filter_canvas">Canvas</string>
+    <string name="filter_photos">Photos</string>
+    <string name="filter_favorites">Favorites</string>
     <string name="tools_track_header">TRACK 02 · CORE</string>
     <string name="select_language_desc">System display language</string>
     <string name="welcome_to_orbit">WELCOME TO ORBIT</string>

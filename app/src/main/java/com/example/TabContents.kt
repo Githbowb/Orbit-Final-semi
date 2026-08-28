@@ -1,11 +1,14 @@
 package com.example
 
 import android.content.Context
+import android.content.Intent
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.browser.customtabs.CustomTabsIntent
 import android.net.Uri
 import androidx.compose.animation.*
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -55,7 +58,8 @@ fun TabSwitcherBar(
         Tuple4(OrbitTab.LAUNCHER, Icons.Default.Apps, stringResource(id = R.string.tool_launcher_name), ToolsPreferences.KEY_LAUNCHPAD),
         Tuple4(OrbitTab.VAULT, Icons.Default.Lock, stringResource(id = R.string.tool_vault_name), ToolsPreferences.KEY_VAULT),
         Tuple4(OrbitTab.CALCULATOR, Icons.Default.Calculate, stringResource(id = R.string.tool_calc_name), ToolsPreferences.KEY_CALCULATOR),
-        Tuple4(OrbitTab.SPEED_DIAL, Icons.Default.Link, stringResource(id = R.string.tool_dial_name), ToolsPreferences.KEY_SPEED_DIAL)
+        Tuple4(OrbitTab.SPEED_DIAL, Icons.Default.Link, stringResource(id = R.string.tool_dial_name), ToolsPreferences.KEY_SPEED_DIAL),
+        Tuple4(OrbitTab.BROWSER, Icons.Default.Language, stringResource(id = R.string.tool_browser_name), ToolsPreferences.KEY_BROWSER)
     )
 
     val activeTabs = allTabs.filter { ToolsPreferences.isToolEnabled(context, it.fourth) }
@@ -72,11 +76,11 @@ fun TabSwitcherBar(
     Row(
         modifier = Modifier
             .fillOuterWidth()
-            .height(56.dp)
-            .background(Color(0x08FFFFFF), RoundedCornerShape(12.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+            .height(58.dp)
+            .background(Color(0x0CFFFFFF), RoundedCornerShape(14.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
             .padding(4.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         activeTabs.forEach { (tab, icon, label, _) ->
@@ -85,27 +89,36 @@ fun TabSwitcherBar(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (isSelected) accentColor.copy(alpha = 0.15f) else Color.Transparent)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (isSelected) accentColor.copy(alpha = 0.22f) else Color.Transparent)
+                    .border(
+                        1.dp,
+                        if (isSelected) accentColor.copy(alpha = 0.45f) else Color.Transparent,
+                        RoundedCornerShape(10.dp)
+                    )
                     .clickable { onTabSelected(tab) }
-                    .padding(vertical = 4.dp),
+                    .padding(horizontal = 2.dp, vertical = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
+                    verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = label,
-                        tint = if (isSelected) accentColor else TextSecondary,
-                        modifier = Modifier.size(20.dp)
+                        tint = if (isSelected) accentColor else TextSecondary.copy(alpha = 0.85f),
+                        modifier = Modifier.size(19.dp)
                     )
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = label,
-                        fontSize = 10.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isSelected) accentColor else TextSecondary
+                        fontSize = 10.5.sp,
+                        fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                        color = if (isSelected) accentColor else TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -1090,6 +1103,7 @@ fun CalculatorTabContent(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SpeedDialTabContent(
     speedDialLabel: String,
@@ -1099,7 +1113,8 @@ fun SpeedDialTabContent(
     speedDialEntries: List<SpeedDialEntry>,
     onSaveLink: () -> Unit,
     onDeleteLink: (SpeedDialEntry) -> Unit,
-    accentColor: Color
+    accentColor: Color,
+    onOpenInFloatingWebView: (String) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -1175,15 +1190,28 @@ fun SpeedDialTabContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        Text(
-            text = stringResource(id = R.string.speed_dial_links),
-            color = accentColor,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 6.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(id = R.string.speed_dial_links),
+                color = accentColor,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = stringResource(id = R.string.browser_long_press_hint),
+                color = TextSecondary,
+                fontSize = 9.5.sp,
+                maxLines = 1
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
 
         if (speedDialEntries.isEmpty()) {
             Box(
@@ -1210,26 +1238,44 @@ fun SpeedDialTabContent(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(speedDialEntries) { entry ->
+                    val formattedUrl = remember(entry.url) {
+                        if (!entry.url.startsWith("http://") && !entry.url.startsWith("https://")) {
+                            "https://${entry.url}"
+                        } else {
+                            entry.url
+                        }
+                    }
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable {
-                                // Launch Chrome Custom Tab safely
-                                val formattedUrl = if (!entry.url.startsWith("http://") && !entry.url.startsWith("https://")) {
-                                    "https://${entry.url}"
-                                } else {
-                                    entry.url
+                            .clip(RoundedCornerShape(12.dp))
+                            .combinedClickable(
+                                onClick = {
+                                    // Single Tap: Open URL inside Floating WebView
+                                    onOpenInFloatingWebView(formattedUrl)
+                                },
+                                onLongClick = {
+                                    // Long-Press: Open URL in default external browser
+                                    try {
+                                        Toast.makeText(context, "Opening in external browser...", Toast.LENGTH_SHORT).show()
+                                        val uri = Uri.parse(formattedUrl)
+                                        val customTabsIntent = CustomTabsIntent.Builder()
+                                            .setShowTitle(true)
+                                            .build()
+                                        customTabsIntent.launchUrl(context, uri)
+                                    } catch (e: Exception) {
+                                        try {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(formattedUrl)).apply {
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (ex: Exception) {
+                                            Toast.makeText(context, context.getString(R.string.invalid_link, entry.url), Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
                                 }
-                                try {
-                                    val uri = Uri.parse(formattedUrl)
-                                    val customTabsIntent = CustomTabsIntent.Builder()
-                                        .setShowTitle(true)
-                                        .build()
-                                    customTabsIntent.launchUrl(context, uri)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, context.getString(R.string.invalid_link, entry.url), Toast.LENGTH_SHORT).show()
-                                }
-                            }
+                            )
                             .padding(4.dp)
                     ) {
                         Column(

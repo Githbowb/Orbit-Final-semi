@@ -10,6 +10,7 @@ object ToolsPreferences {
     const val KEY_CALCULATOR = "tool_calc"
     const val KEY_OCR = "tool_ocr"
     const val KEY_SPEED_DIAL = "tool_dial"
+    const val KEY_BROWSER = "tool_browser"
     const val KEY_SCANNER = "tool_scanner"
 
     val DEFAULT_TOOLS = listOf(
@@ -18,6 +19,7 @@ object ToolsPreferences {
         KEY_CALCULATOR,
         KEY_OCR,
         KEY_SPEED_DIAL,
+        KEY_BROWSER,
         KEY_SCANNER
     )
 

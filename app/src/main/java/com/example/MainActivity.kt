@@ -90,6 +90,11 @@ import androidx.compose.ui.window.DialogProperties
 import java.io.File
 import java.io.FileOutputStream
 import com.example.ui.theme.*
+import com.example.data.ArtworkEntry
+import com.example.data.OrbitDatabase
+import com.example.data.OrbitRepository
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class MainActivity : ComponentActivity() {
@@ -1311,10 +1316,12 @@ data class DrawnPath(
 @Composable
 fun CreativeDrawingCanvasSection(
     context: Context,
+    repository: OrbitRepository,
     accentColor: Color,
     isServiceRunning: Boolean,
     onDrawingSaved: () -> Unit
 ) {
+    val coroutineScope = rememberCoroutineScope()
     var paths by remember { mutableStateOf(listOf<DrawnPath>()) }
     var currentPoints by remember { mutableStateOf(listOf<Offset>()) }
     var currentColor by remember { mutableStateOf(Color(0xFFFF6B35)) }
@@ -1333,6 +1340,66 @@ fun CreativeDrawingCanvasSection(
         Color(0xFFD500F9), // Neon Purple
         Color(0xFF050508)  // Space Black
     )
+
+    fun renderDrawnBitmap(): Bitmap {
+        val outputSize = 256
+        val boxPx = if (canvasSizePx > 0f) canvasSizePx else 600f
+        val centerX = boxPx / 2f
+        val centerY = boxPx / 2f
+        val radiusPx = boxPx / 2f
+        val cropLeft = centerX - radiusPx
+        val cropTop = centerY - radiusPx
+        val cropDiameter = radiusPx * 2f
+        val scale = outputSize / cropDiameter
+
+        val tempDrawing = Bitmap.createBitmap(outputSize, outputSize, Bitmap.Config.ARGB_8888)
+        val tempCanvas = android.graphics.Canvas(tempDrawing)
+        val linePaint = android.graphics.Paint().apply {
+            isAntiAlias = true
+            style = android.graphics.Paint.Style.STROKE
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            strokeJoin = android.graphics.Paint.Join.ROUND
+        }
+
+        paths.forEach { pathItem ->
+            linePaint.strokeWidth = pathItem.strokeWidth * scale
+            if (pathItem.isEraser) {
+                linePaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+                linePaint.color = android.graphics.Color.TRANSPARENT
+            } else {
+                linePaint.xfermode = null
+                linePaint.color = pathItem.color.toArgb()
+            }
+
+            if (pathItem.points.size > 1) {
+                for (i in 0 until pathItem.points.size - 1) {
+                    val p1 = pathItem.points[i]
+                    val p2 = pathItem.points[i + 1]
+                    val x1 = (p1.x - cropLeft) * scale
+                    val y1 = (p1.y - cropTop) * scale
+                    val x2 = (p2.x - cropLeft) * scale
+                    val y2 = (p2.y - cropTop) * scale
+
+                    tempCanvas.drawLine(x1, y1, x2, y2, linePaint)
+                }
+            }
+        }
+
+        val finalBitmap = Bitmap.createBitmap(outputSize, outputSize, Bitmap.Config.ARGB_8888)
+        val finalCanvas = android.graphics.Canvas(finalBitmap)
+        val maskPaint = android.graphics.Paint().apply {
+            isAntiAlias = true
+            color = android.graphics.Color.BLACK
+        }
+        finalCanvas.drawCircle(outputSize / 2f, outputSize / 2f, outputSize / 2f, maskPaint)
+
+        val cropPaint = android.graphics.Paint().apply {
+            isAntiAlias = true
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+        }
+        finalCanvas.drawBitmap(tempDrawing, 0f, 0f, cropPaint)
+        return finalBitmap
+    }
 
     Card(
         modifier = Modifier
@@ -1535,105 +1602,103 @@ fun CreativeDrawingCanvasSection(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Apply Canvas Drawing Button
-            Button(
-                onClick = {
-                    try {
-                        val outputSize = 256
-                        val boxPx = if (canvasSizePx > 0f) canvasSizePx else 600f
-                        val centerX = boxPx / 2f
-                        val centerY = boxPx / 2f
-                        val radiusPx = boxPx / 2f
-                        val cropLeft = centerX - radiusPx
-                        val cropTop = centerY - radiusPx
-                        val cropDiameter = radiusPx * 2f
-
-                        val scale = outputSize / cropDiameter
-
-                        // Temporary bitmap holding exact drawn paths scaled to output resolution
-                        val tempDrawing = Bitmap.createBitmap(outputSize, outputSize, Bitmap.Config.ARGB_8888)
-                        val tempCanvas = android.graphics.Canvas(tempDrawing)
-                        val linePaint = android.graphics.Paint().apply {
-                            isAntiAlias = true
-                            style = android.graphics.Paint.Style.STROKE
-                            strokeCap = android.graphics.Paint.Cap.ROUND
-                            strokeJoin = android.graphics.Paint.Join.ROUND
-                        }
-
-                        paths.forEach { pathItem ->
-                            linePaint.strokeWidth = pathItem.strokeWidth * scale
-                            if (pathItem.isEraser) {
-                                linePaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
-                                linePaint.color = android.graphics.Color.TRANSPARENT
-                            } else {
-                                linePaint.xfermode = null
-                                linePaint.color = pathItem.color.toArgb()
-                            }
-
-                            if (pathItem.points.size > 1) {
-                                for (i in 0 until pathItem.points.size - 1) {
-                                    val p1 = pathItem.points[i]
-                                    val p2 = pathItem.points[i + 1]
-                                    val x1 = (p1.x - cropLeft) * scale
-                                    val y1 = (p1.y - cropTop) * scale
-                                    val x2 = (p2.x - cropLeft) * scale
-                                    val y2 = (p2.y - cropTop) * scale
-
-                                    tempCanvas.drawLine(x1, y1, x2, y2, linePaint)
-                                }
-                            }
-                        }
-
-                        // Final output bitmap cropped strictly inside circular guide using PorterDuff.Mode.SRC_IN
-                        val finalBitmap = Bitmap.createBitmap(outputSize, outputSize, Bitmap.Config.ARGB_8888)
-                        val finalCanvas = android.graphics.Canvas(finalBitmap)
-
-                        // Solid circular mask
-                        val maskPaint = android.graphics.Paint().apply {
-                            isAntiAlias = true
-                            color = android.graphics.Color.BLACK
-                        }
-                        finalCanvas.drawCircle(outputSize / 2f, outputSize / 2f, outputSize / 2f, maskPaint)
-
-                        // Clip drawing strictly to circular mask boundary
-                        val cropPaint = android.graphics.Paint().apply {
-                            isAntiAlias = true
-                            xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
-                        }
-                        finalCanvas.drawBitmap(tempDrawing, 0f, 0f, cropPaint)
-
-                        val file = File(context.filesDir, "custom_bubble_icon.png")
-                        FileOutputStream(file).use { out ->
-                            finalBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-                        }
-
-                        ThemePreferences.setBubbleSymbol(context, "custom")
-                        Toast.makeText(context, context.getString(R.string.drawing_saved_to_bubble), Toast.LENGTH_SHORT).show()
-                        onDrawingSaved()
-
-                        if (isServiceRunning) {
-                            val serviceIntent = Intent(context, FloatingLauncherService::class.java).apply {
-                                action = FloatingLauncherService.ACTION_UPDATE_THEME
-                            }
-                            context.startService(serviceIntent)
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        Toast.makeText(context, context.getString(R.string.failed_to_render_drawing), Toast.LENGTH_SHORT).show()
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFFF6B35),
-                    contentColor = Color.Black
-                ),
-                shape = RoundedCornerShape(14.dp)
+            // Actions: Save to Collection & Apply Drawing
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(imageVector = Icons.Default.Brush, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = stringResource(id = R.string.apply_drawing), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                // Save to Collection
+                OutlinedButton(
+                    onClick = {
+                        try {
+                            val finalBitmap = renderDrawnBitmap()
+                            val artworksDir = File(context.filesDir, "artworks").apply { if (!exists()) mkdirs() }
+                            val timestamp = System.currentTimeMillis()
+                            val artworkFile = File(artworksDir, "canvas_$timestamp.png")
+                            FileOutputStream(artworkFile).use { out ->
+                                finalBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                            }
+                            coroutineScope.launch(Dispatchers.IO) {
+                                repository.insertArtwork(
+                                    ArtworkEntry(
+                                        title = "Canvas Art #${timestamp % 10000}",
+                                        filePath = artworkFile.absolutePath,
+                                        type = "CANVAS"
+                                    )
+                                )
+                            }
+                            Toast.makeText(context, context.getString(R.string.saved_to_collection), Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            Toast.makeText(context, context.getString(R.string.failed_to_render_drawing), Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF6B35).copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Collections, contentDescription = null, tint = Color(0xFFFF6B35), modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = stringResource(id = R.string.save_to_collection), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF6B35))
+                }
+
+                // Apply Drawing to Bubble
+                Button(
+                    onClick = {
+                        try {
+                            val finalBitmap = renderDrawnBitmap()
+
+                            val file = File(context.filesDir, "custom_bubble_icon.png")
+                            FileOutputStream(file).use { out ->
+                                finalBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                            }
+
+                            val artworksDir = File(context.filesDir, "artworks").apply { if (!exists()) mkdirs() }
+                            val timestamp = System.currentTimeMillis()
+                            val artworkFile = File(artworksDir, "canvas_$timestamp.png")
+                            FileOutputStream(artworkFile).use { out ->
+                                finalBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                            }
+                            coroutineScope.launch(Dispatchers.IO) {
+                                repository.insertArtwork(
+                                    ArtworkEntry(
+                                        title = "Canvas Art #${timestamp % 10000}",
+                                        filePath = artworkFile.absolutePath,
+                                        type = "CANVAS"
+                                    )
+                                )
+                            }
+
+                            ThemePreferences.setBubbleSymbol(context, "custom")
+                            Toast.makeText(context, context.getString(R.string.drawing_saved_to_bubble), Toast.LENGTH_SHORT).show()
+                            onDrawingSaved()
+
+                            if (isServiceRunning) {
+                                val serviceIntent = Intent(context, FloatingLauncherService::class.java).apply {
+                                    action = FloatingLauncherService.ACTION_UPDATE_THEME
+                                }
+                                context.startService(serviceIntent)
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            Toast.makeText(context, context.getString(R.string.failed_to_render_drawing), Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFF6B35),
+                        contentColor = Color.Black
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Brush, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = stringResource(id = R.string.apply_drawing), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
@@ -1647,6 +1712,10 @@ fun StudioTabContent(
     onThemeChanged: (NeonTheme) -> Unit,
     isServiceRunning: Boolean
 ) {
+    val coroutineScope = rememberCoroutineScope()
+    val database = remember { OrbitDatabase.getDatabase(context) }
+    val repository = remember { OrbitRepository(database) }
+
     val scrollState = rememberScrollState()
     var selectedSymbol by remember { mutableStateOf(ThemePreferences.getBubbleSymbol(context)) }
     var bubbleSize by remember { mutableStateOf(ThemePreferences.getBubbleSize(context).toFloat()) }
@@ -1654,7 +1723,7 @@ fun StudioTabContent(
     var bubbleOpacity by remember { mutableStateOf(ThemePreferences.getBubbleOpacity(context)) }
     var borderStroke by remember { mutableStateOf(ThemePreferences.getBorderStrokeDp(context).toFloat()) }
     var innerTintColor by remember { mutableStateOf(ThemePreferences.getInnerTintColor(context)) }
-    var studioMode by remember { mutableStateOf(0) } // 0 = Presets & Upload, 1 = Canvas Painter
+    var studioMode by remember { mutableStateOf(0) } // 0 = Presets & Upload, 1 = Canvas Painter, 2 = My Collection
     var showSavedMessage by remember { mutableStateOf(false) }
 
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -1697,10 +1766,28 @@ fun StudioTabContent(
                     FileOutputStream(file).use { out ->
                         croppedBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
                     }
+
+                    // Also save to My Collection
+                    val artworksDir = File(context.filesDir, "artworks").apply { if (!exists()) mkdirs() }
+                    val timestamp = System.currentTimeMillis()
+                    val artworkFile = File(artworksDir, "photo_$timestamp.png")
+                    FileOutputStream(artworkFile).use { out ->
+                        croppedBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                    }
+                    coroutineScope.launch(Dispatchers.IO) {
+                        repository.insertArtwork(
+                            ArtworkEntry(
+                                title = "Photo Crop #${timestamp % 10000}",
+                                filePath = artworkFile.absolutePath,
+                                type = "PHOTO_CROP"
+                            )
+                        )
+                    }
+
                     selectedSymbol = "custom"
                     ThemePreferences.setBubbleSymbol(context, "custom")
                     customImageVersion++
-                    Toast.makeText(context, "Custom Bubble Image Applied!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Custom Bubble Image Applied & Saved!", Toast.LENGTH_SHORT).show()
 
                     if (isServiceRunning) {
                         val serviceIntent = Intent(context, FloatingLauncherService::class.java).apply {
@@ -1721,7 +1808,7 @@ fun StudioTabContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp)
-            .verticalScroll(scrollState),
+            .then(if (studioMode != 2) Modifier.verticalScroll(scrollState) else Modifier),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(16.dp))
@@ -1762,21 +1849,44 @@ fun StudioTabContent(
                         .clip(RoundedCornerShape(9.dp))
                         .background(if (studioMode == 0) signalOrange.copy(alpha = 0.2f) else Color.Transparent)
                         .clickable { studioMode = 0 }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
                 ) {
-                    Text(text = stringResource(id = R.string.presets), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (studioMode == 0) signalOrange else inkDim)
+                    Text(text = stringResource(id = R.string.presets), fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = if (studioMode == 0) signalOrange else inkDim)
                 }
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(9.dp))
                         .background(if (studioMode == 1) signalOrange.copy(alpha = 0.2f) else Color.Transparent)
                         .clickable { studioMode = 1 }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
                 ) {
-                    Text(text = stringResource(id = R.string.canvas), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (studioMode == 1) signalOrange else inkDim)
+                    Text(text = stringResource(id = R.string.canvas), fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = if (studioMode == 1) signalOrange else inkDim)
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(if (studioMode == 2) signalOrange.copy(alpha = 0.2f) else Color.Transparent)
+                        .clickable { studioMode = 2 }
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Text(text = stringResource(id = R.string.tab_collection), fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = if (studioMode == 2) signalOrange else inkDim)
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (studioMode == 2) {
+            // Dedicated "My Collection" visual gallery area
+            StudioCollectionSection(
+                context = context,
+                repository = repository,
+                accentColor = signalOrange,
+                isServiceRunning = isServiceRunning,
+                onNavigateToCanvas = { studioMode = 1 },
+                onNavigateToUpload = { imagePickerLauncher.launch("image/*") }
+            )
+        } else {
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -1881,6 +1991,7 @@ fun StudioTabContent(
             // Interactive Drawing Canvas Mode
             CreativeDrawingCanvasSection(
                 context = context,
+                repository = repository,
                 accentColor = accentColor,
                 isServiceRunning = isServiceRunning,
                 onDrawingSaved = {
@@ -2346,6 +2457,7 @@ fun StudioTabContent(
                 )
             }
         }
+    }
 
         Spacer(modifier = Modifier.height(28.dp))
     }

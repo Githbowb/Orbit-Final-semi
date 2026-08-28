@@ -4,5 +4,6 @@ enum class OrbitTab {
     LAUNCHER,
     VAULT,
     CALCULATOR,
-    SPEED_DIAL
+    SPEED_DIAL,
+    BROWSER
 }
