@@ -14,6 +14,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -38,6 +42,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -160,39 +165,63 @@ fun LauncherTabContent(
     accentColor: Color
 ) {
     val context = LocalContext.current
+    var isWarningDismissed by remember { mutableStateOf(ThemePreferences.isUsageWarningDismissed(context)) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.height(6.dp))
 
         // Sorting Subtitle / Explanation Banner
-        if (sortedAlphabetically && searchQuery.isEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0x18FF3B30))
-                    .border(1.dp, Color(0xFFFF3B30).copy(alpha = 0.35f), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+        if (sortedAlphabetically && searchQuery.isEmpty() && explanationReason.isNotBlank() && !isWarningDismissed) {
+            AnimatedVisibility(
+                visible = !isWarningDismissed,
+                enter = fadeIn(),
+                exit = fadeOut() + shrinkVertically()
             ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = "Alert",
-                    tint = Color(0xFFFF4D4D),
-                    modifier = Modifier.size(15.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = explanationReason,
-                    color = Color(0xFFFFB3B3),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f)
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0x18FF3B30))
+                        .border(1.dp, Color(0xFFFF3B30).copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                        .padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Alert",
+                        tint = Color(0xFFFF4D4D),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = explanationReason,
+                        color = Color(0xFFFFB3B3),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = {
+                            isWarningDismissed = true
+                            ThemePreferences.setUsageWarningDismissed(context, true)
+                        },
+                        modifier = Modifier
+                            .size(28.dp)
+                            .testTag("delete_permission_warning_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(id = R.string.dismiss_permission_warning),
+                            tint = Color(0xFFFFB3B3).copy(alpha = 0.85f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
             }
-        } else if (searchQuery.isEmpty()) {
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        if (searchQuery.isEmpty()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -208,7 +237,11 @@ fun LauncherTabContent(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = stringResource(id = R.string.overlay_most_used),
+                    text = if (sortedAlphabetically) {
+                        stringResource(id = R.string.overlay_apps_a_z)
+                    } else {
+                        stringResource(id = R.string.overlay_most_used)
+                    },
                     color = TextSecondary.copy(alpha = 0.9f),
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Medium,
@@ -521,6 +554,7 @@ fun LauncherTabContent(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun VaultTabContent(
     vaultText: String,
@@ -551,49 +585,109 @@ fun VaultTabContent(
 
     var isCreatingFolder by remember { mutableStateOf(false) }
     var newFolderName by remember { mutableStateOf("") }
+    val isImeVisible = WindowInsets.isImeVisible
+    val listState = rememberLazyListState()
 
-    Column(
+    LaunchedEffect(editingEntry) {
+        if (editingEntry != null) {
+            listState.animateScrollToItem(0)
+        }
+    }
+    LaunchedEffect(isCreatingFolder) {
+        if (isCreatingFolder) {
+            listState.animateScrollToItem(2)
+        }
+    }
+
+    LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 4.dp)
+            .padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Edit Mode Header Info
         if (editingEntry != null) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(accentColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = stringResource(id = R.string.editing_saved_note),
-                    color = accentColor,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = stringResource(id = R.string.cancel_edit),
-                    color = Color(0xFFFF5252),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
+            item {
+                Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .clickable { onStartEditing(null) }
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                )
+                        .fillMaxWidth()
+                        .background(accentColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.editing_saved_note),
+                        color = accentColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(id = R.string.cancel_edit),
+                        color = Color(0xFFFF5252),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable { onStartEditing(null) }
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(6.dp))
         }
 
-        // Premium Redesigned Flagship OCR Action - Scanner Control Deck
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp)
-        ) {
-            // Header tag with subtle Live/Ready status
+        // Scanner Section: Compact pill when soft keyboard is up, or full flagship deck when idle
+        item {
+            if (isImeVisible) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF0F1524))
+                        .border(1.dp, accentColor.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                        .clickable(enabled = !isDownloading) {
+                            if (isModelDownloaded) {
+                                onScanScreen()
+                            } else {
+                                OcrManager.checkModelStatus()
+                            }
+                        }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DocumentScanner,
+                            contentDescription = "Screen Scan",
+                            tint = accentColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = stringResource(id = R.string.ocr_screen_capture),
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Text(
+                        text = if (isDownloading) stringResource(id = R.string.ocr_downloading) else if (!isModelDownloaded) stringResource(id = R.string.ocr_not_ready) else stringResource(id = R.string.screen_ocr_badge),
+                        color = accentColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 4.dp)
+                ) {
+                    // Header tag with subtle Live/Ready status
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -806,199 +900,201 @@ fun VaultTabContent(
                 )
             }
         }
-
-        Spacer(modifier = Modifier.height(10.dp))
+    }
+}
 
         // Compose section
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextField(
-                value = vaultText,
-                onValueChange = onVaultTextChange,
-                placeholder = { Text(stringResource(id = R.string.write_quick_note_hint), color = TextSecondary, fontSize = 13.sp) },
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0x1400E5FF),
-                    unfocusedContainerColor = Color(0x0AFFFFFF),
-                    focusedIndicatorColor = accentColor,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
-                ),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(80.dp)
-                    .clip(RoundedCornerShape(12.dp)),
-                maxLines = 4
-            )
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            IconButton(
-                onClick = onSaveEntry,
-                enabled = vaultText.isNotBlank(),
-                modifier = Modifier
-                    .size(50.dp)
-                    .background(
-                        if (vaultText.isNotBlank()) accentColor else Color.White.copy(alpha = 0.05f),
-                        RoundedCornerShape(12.dp)
-                    )
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = if (editingEntry != null) Icons.Default.Check else Icons.Default.Add,
-                    contentDescription = if (editingEntry != null) stringResource(id = R.string.update_note) else stringResource(id = R.string.save_note),
-                    tint = if (vaultText.isNotBlank()) Color.Black else TextSecondary
+                TextField(
+                    value = vaultText,
+                    onValueChange = onVaultTextChange,
+                    placeholder = { Text(stringResource(id = R.string.write_quick_note_hint), color = TextSecondary, fontSize = 13.sp) },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color(0x1400E5FF),
+                        unfocusedContainerColor = Color(0x0AFFFFFF),
+                        focusedIndicatorColor = accentColor,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(80.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    maxLines = 4
                 )
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                IconButton(
+                    onClick = onSaveEntry,
+                    enabled = vaultText.isNotBlank(),
+                    modifier = Modifier
+                        .size(50.dp)
+                        .background(
+                            if (vaultText.isNotBlank()) accentColor else Color.White.copy(alpha = 0.05f),
+                            RoundedCornerShape(12.dp)
+                        )
+                ) {
+                    Icon(
+                        imageVector = if (editingEntry != null) Icons.Default.Check else Icons.Default.Add,
+                        contentDescription = if (editingEntry != null) stringResource(id = R.string.update_note) else stringResource(id = R.string.save_note),
+                        tint = if (vaultText.isNotBlank()) Color.Black else TextSecondary
+                    )
+                }
             }
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
 
         // Folders Section Header and Controls
         if (currentFolderId == null) {
             // Root View Folder Section
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = stringResource(id = R.string.vault_folders),
-                    color = accentColor,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                IconButton(
-                    onClick = { isCreatingFolder = !isCreatingFolder },
-                    modifier = Modifier.size(24.dp)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        imageVector = if (isCreatingFolder) Icons.Default.Close else Icons.Default.CreateNewFolder,
-                        contentDescription = "New Folder",
-                        tint = accentColor,
-                        modifier = Modifier.size(18.dp)
+                    Text(
+                        text = stringResource(id = R.string.vault_folders),
+                        color = accentColor,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
                     )
+                    
+                    IconButton(
+                        onClick = { isCreatingFolder = !isCreatingFolder },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isCreatingFolder) Icons.Default.Close else Icons.Default.CreateNewFolder,
+                            contentDescription = "New Folder",
+                            tint = accentColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 
             if (isCreatingFolder) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    TextField(
-                        value = newFolderName,
-                        onValueChange = { newFolderName = it },
-                        placeholder = { Text(stringResource(id = R.string.folder_name_hint), color = TextSecondary, fontSize = 14.sp) },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color(0x1400E5FF),
-                            unfocusedContainerColor = Color(0x0AFFFFFF),
-                            focusedIndicatorColor = accentColor,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp)
-                            .clip(RoundedCornerShape(12.dp)),
-                        singleLine = true
-                    )
-                    IconButton(
-                        onClick = {
-                            if (newFolderName.isNotBlank()) {
-                                onCreateFolder(newFolderName)
-                                newFolderName = ""
-                                isCreatingFolder = false
-                            }
-                        },
-                        enabled = newFolderName.isNotBlank(),
-                        modifier = Modifier
-                            .size(52.dp)
-                            .background(
-                                if (newFolderName.isNotBlank()) accentColor else Color.White.copy(alpha = 0.05f),
-                                RoundedCornerShape(12.dp)
-                            )
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "Create Folder",
-                            tint = if (newFolderName.isNotBlank()) Color.Black else TextSecondary,
-                            modifier = Modifier.size(20.dp)
+                        TextField(
+                            value = newFolderName,
+                            onValueChange = { newFolderName = it },
+                            placeholder = { Text(stringResource(id = R.string.folder_name_hint), color = TextSecondary, fontSize = 14.sp) },
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color(0x1400E5FF),
+                                unfocusedContainerColor = Color(0x0AFFFFFF),
+                                focusedIndicatorColor = accentColor,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            singleLine = true
                         )
+                        IconButton(
+                            onClick = {
+                                if (newFolderName.isNotBlank()) {
+                                    onCreateFolder(newFolderName)
+                                    newFolderName = ""
+                                    isCreatingFolder = false
+                                }
+                            },
+                            enabled = newFolderName.isNotBlank(),
+                            modifier = Modifier
+                                .size(52.dp)
+                                .background(
+                                    if (newFolderName.isNotBlank()) accentColor else Color.White.copy(alpha = 0.05f),
+                                    RoundedCornerShape(12.dp)
+                                )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Create Folder",
+                                tint = if (newFolderName.isNotBlank()) Color.Black else TextSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(14.dp))
             }
         } else {
             // Folder Breadcrumbs Back Navigation Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { onCurrentFolderIdChange(null) }
-                    .background(Color(0x1A00E5FF), RoundedCornerShape(8.dp))
-                    .border(0.5.dp, accentColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = accentColor,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(id = R.string.root_folder_prefix, currentFolderName ?: ""),
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onCurrentFolderIdChange(null) }
+                        .background(Color(0x1A00E5FF), RoundedCornerShape(8.dp))
+                        .border(0.5.dp, accentColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = accentColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(id = R.string.root_folder_prefix, currentFolderName ?: ""),
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
-
         // Main List Content (Folders & Notes)
         if (currentFolderId == null && folders.isEmpty() && savedEntries.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = stringResource(id = R.string.vault_empty_msg),
-                    color = TextSecondary,
-                    fontSize = 13.sp,
-                    textAlign = TextAlign.Center
-                )
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.vault_empty_msg),
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         } else if (currentFolderId != null && savedEntries.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = stringResource(id = R.string.folder_empty_msg),
-                    color = TextSecondary,
-                    fontSize = 13.sp,
-                    textAlign = TextAlign.Center
-                )
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.folder_empty_msg),
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
                 // 1. Folders List (only shown in Root view)
                 if (currentFolderId == null && folders.isNotEmpty()) {
                     items(folders) { folder ->
@@ -1170,7 +1266,6 @@ fun VaultTabContent(
             }
         }
     }
-}
 
 @Composable
 fun CalculatorTabContent(
@@ -1204,89 +1299,192 @@ fun CalculatorTabContent(
         }
     }
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(scrollState)
             .padding(vertical = 4.dp),
-        verticalArrangement = Arrangement.Top
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
-            text = stringResource(id = R.string.floating_calculator),
-            color = accentColor,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        // Mathematical input field
-        TextField(
-            value = calculatorInput,
-            onValueChange = onCalculatorInputChange,
-            placeholder = { Text(stringResource(id = R.string.calc_hint), color = TextSecondary, fontSize = 13.sp) },
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color(0x1400E5FF),
-                unfocusedContainerColor = Color(0x0AFFFFFF),
-                focusedIndicatorColor = accentColor,
-                unfocusedIndicatorColor = Color.Transparent,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .clip(RoundedCornerShape(12.dp)),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Large Output Card for the evaluation result or error
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0x05FFFFFF), RoundedCornerShape(14.dp))
-                .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(14.dp))
-                .padding(20.dp),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = stringResource(id = R.string.calc_result),
-                    color = TextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                if (errorText.isNotEmpty()) {
-                    Text(
-                        text = errorText,
-                        color = Color(0xFFFF4D4D),
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                } else {
-                    Text(
-                        text = resultText.ifEmpty { "0" },
-                        color = if (resultText.isNotEmpty()) accentColor else Color.White.copy(alpha = 0.4f),
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
+            Text(
+                text = stringResource(id = R.string.floating_calculator),
+                color = accentColor,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+            if (resultText.isNotEmpty() && errorText.isEmpty()) {
+                IconButton(
+                    onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        val clip = android.content.ClipData.newPlainText("Calculator Result", resultText)
+                        clipboard.setPrimaryClip(clip)
+                        Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Copy Result",
+                        tint = accentColor,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        // Display Card (Input and live result)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF0F1524))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                TextField(
+                    value = calculatorInput,
+                    onValueChange = onCalculatorInputChange,
+                    placeholder = { Text(stringResource(id = R.string.calc_hint), color = TextSecondary, fontSize = 13.sp) },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = LocalTextStyle.current.copy(
+                        fontSize = 16.sp,
+                        textAlign = TextAlign.End,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    singleLine = true
+                )
 
-        // Help quick buttons/keys representation
-        Text(
-            text = stringResource(id = R.string.calc_operators),
-            color = TextSecondary,
-            fontSize = 11.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
+                Spacer(modifier = Modifier.height(2.dp))
+
+                if (errorText.isNotEmpty()) {
+                    Text(
+                        text = errorText,
+                        color = Color(0xFFFF5252),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    Text(
+                        text = resultText.ifEmpty { "0" },
+                        color = if (resultText.isNotEmpty()) accentColor else Color.White.copy(alpha = 0.35f),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+
+        // 5-Row Calculator Keypad Grid
+        val buttonRows = listOf(
+            listOf("C", "(", ")", "÷"),
+            listOf("7", "8", "9", "×"),
+            listOf("4", "5", "6", "−"),
+            listOf("1", "2", "3", "+"),
+            listOf("0", ".", "⌫", "=")
         )
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            for (row in buttonRows) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    for (btn in row) {
+                        val isOperator = btn in listOf("÷", "×", "−", "+")
+                        val isClear = btn == "C"
+                        val isBackspace = btn == "⌫"
+                        val isEquals = btn == "="
+
+                        val containerColor = when {
+                            isEquals -> accentColor
+                            isOperator -> accentColor.copy(alpha = 0.2f)
+                            isClear -> Color(0x22FF5252)
+                            isBackspace -> Color.White.copy(alpha = 0.08f)
+                            else -> Color(0x0EFFFFFF)
+                        }
+
+                        val contentColor = when {
+                            isEquals -> Color.Black
+                            isOperator -> accentColor
+                            isClear -> Color(0xFFFF5252)
+                            else -> Color.White
+                        }
+
+                        val borderColor = when {
+                            isEquals -> accentColor
+                            isOperator -> accentColor.copy(alpha = 0.4f)
+                            isClear -> Color(0x44FF5252)
+                            else -> Color.White.copy(alpha = 0.06f)
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(containerColor)
+                                .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+                                .clickable {
+                                    when (btn) {
+                                        "C" -> onCalculatorInputChange("")
+                                        "⌫" -> {
+                                            if (calculatorInput.isNotEmpty()) {
+                                                onCalculatorInputChange(calculatorInput.dropLast(1))
+                                            }
+                                        }
+                                        "=" -> {
+                                            if (resultText.isNotEmpty() && errorText.isEmpty()) {
+                                                onCalculatorInputChange(resultText)
+                                            }
+                                        }
+                                        else -> onCalculatorInputChange(calculatorInput + btn)
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isBackspace) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Backspace,
+                                    contentDescription = "Backspace",
+                                    tint = contentColor,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = btn,
+                                    color = contentColor,
+                                    fontSize = if (isOperator || isEquals) 18.sp else 16.sp,
+                                    fontWeight = if (isEquals || isOperator) FontWeight.Bold else FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -179,9 +179,10 @@
 
     <!-- Overlay strings -->
     <string name="overlay_launchpad">منصة أوربت</string>
-    <string name="overlay_no_usage_permission">إذن الوصول للاستخدام غير مفعل؛ تم ترتيب التطبيقات حسب التشغيل المباشر.</string>
-    <string name="overlay_no_usage_stats">لم يتم العثور على إحصائيات الاستخدام؛ تم ترتيب التطبيقات حسب الاستخدام الفعلي.</string>
+    <string name="overlay_no_usage_permission">إذن الوصول للاستخدام غير مفعل؛ تم ترتيب التطبيقات من أ إلى ي.</string>
+    <string name="overlay_no_usage_stats">لم يتم العثور على إحصائيات الاستخدام؛ تم ترتيب التطبيقات من أ إلى ي.</string>
     <string name="overlay_most_used">الاستخدام الفعلي الأخير</string>
+    <string name="overlay_apps_a_z">التطبيقات من أ إلى ي</string>
     <string name="overlay_search_placeholder">البحث عن التطبيقات...</string>
     <string name="overlay_no_matching">لم يتم العثور على تطبيقات مطابقة</string>
     <string name="overlay_favorites">المفضلة ⭐</string>
@@ -256,4 +257,13 @@
     <string name="welcome_to_orbit">مرحباً بك في أوربت</string>
     <string name="search_engine_title">محرك البحث</string>
     <string name="search_engine_desc">محرك البحث الافتراضي للمتصفح العائم</string>
+    <string name="browser_upload_picture">رفع صورة</string>
+    <string name="browser_voice_chat">محادثة صوتية</string>
+    <string name="browser_voice_chat_title">الإدخال الصوتي والمحادثة</string>
+    <string name="browser_listening">جاري الاستماع… تحدث الآن</string>
+    <string name="browser_open_chatgpt_voice">فتح محادثة ChatGPT الصوتية</string>
+    <string name="browser_switch_engine">تبديل محرك البحث</string>
+    <string name="browser_standing_on_link">الرابط الحالي</string>
+    <string name="dismiss_permission_warning">تجاهل الإشعار</string>
+    <string name="delete_banner">حذف</string>
 </resources>

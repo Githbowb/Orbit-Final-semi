@@ -11,6 +11,8 @@
     <!-- Required by the Vault "Scan Screen" OCR feature: MediaProjection-based screen capture -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
 
     <!-- Queries to find launchable apps instead of QUERY_ALL_PACKAGES -->
     <queries>

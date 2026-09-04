@@ -124,6 +124,7 @@ class OverlayActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OverlayScreen(onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -272,6 +273,8 @@ fun OverlayScreen(onDismiss: () -> Unit) {
         }
     }
 
+    val isImeVisible = WindowInsets.isImeVisible
+
     val animatedWidthFraction by animateFloatAsState(
         targetValue = if (isMaximized && selectedTab == OrbitTab.BROWSER) 0.96f else 0.92f,
         animationSpec = androidx.compose.animation.core.spring(
@@ -281,7 +284,7 @@ fun OverlayScreen(onDismiss: () -> Unit) {
         label = "windowWidth"
     )
     val animatedHeightFraction by animateFloatAsState(
-        targetValue = if (isMaximized && selectedTab == OrbitTab.BROWSER) 0.88f else 0.82f,
+        targetValue = if (isImeVisible) 0.96f else if (isMaximized && selectedTab == OrbitTab.BROWSER) 0.88f else 0.82f,
         animationSpec = androidx.compose.animation.core.spring(
             dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
             stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
@@ -399,7 +402,7 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                     animateDismiss() // Dismiss when tapping outside the card
                 }
             },
-        contentAlignment = Alignment.Center
+        contentAlignment = if (isImeVisible) Alignment.TopCenter else Alignment.Center
     ) {
         if (!isScanOverlayVisible) {
             // App Grid Container Card with Dynamic Sizing and Maximize support
@@ -412,6 +415,7 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                     }
                     .fillMaxWidth(animatedWidthFraction)
                     .fillMaxHeight(animatedHeightFraction)
+                    .then(if (isImeVisible) Modifier.padding(top = 8.dp) else Modifier)
                     .widthIn(max = if (isMaximized && selectedTab == OrbitTab.BROWSER) 850.dp else 600.dp)
                     .border(
                         width = 1.5.dp,

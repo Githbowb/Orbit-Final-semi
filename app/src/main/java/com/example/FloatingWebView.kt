@@ -1,13 +1,19 @@
 package com.example
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.provider.MediaStore
 import android.view.ViewGroup
+import android.webkit.PermissionRequest
 import android.webkit.URLUtil
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -15,19 +21,24 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -88,6 +99,45 @@ fun FloatingWebViewContent(
     var isAddressBarFocused by remember { mutableStateOf(false) }
 
     var webViewInstance by remember { mutableStateOf<WebView?>(null) }
+
+    // Native Web file upload & microphone permissions for in-page actions (ChatGPT, DuckDuckGo, etc.)
+    var fileChooserCallback by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }
+    var pendingWebPermissionRequest by remember { mutableStateOf<PermissionRequest?>(null) }
+    var hoveredLink by remember { mutableStateOf<String?>(null) }
+    var showEngineMenu by remember { mutableStateOf(false) }
+
+    // Generic file chooser launcher for <input type="file"> on web pages
+    val fileChooserLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val intentData = result.data
+            val uris: Array<Uri>? = when {
+                intentData?.clipData != null -> {
+                    val count = intentData.clipData!!.itemCount
+                    (0 until count).map { intentData.clipData!!.getItemAt(it).uri }.toTypedArray()
+                }
+                intentData?.data != null -> arrayOf(intentData.data!!)
+                else -> null
+            }
+            fileChooserCallback?.onReceiveValue(uris)
+        } else {
+            fileChooserCallback?.onReceiveValue(null)
+        }
+        fileChooserCallback = null
+    }
+
+    // Audio recording runtime permission launcher for in-page WebRTC voice chat (e.g. ChatGPT Voice)
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            pendingWebPermissionRequest?.grant(pendingWebPermissionRequest?.resources)
+        } else {
+            pendingWebPermissionRequest?.deny()
+        }
+        pendingWebPermissionRequest = null
+    }
 
     fun normalizeUrl(input: String): String {
         val trimmed = input.trim()
@@ -183,6 +233,58 @@ fun FloatingWebViewContent(
             )
         }
 
+        // Top Address & Search Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 4.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF111422))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                .padding(horizontal = 8.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Search",
+                tint = accentColor,
+                modifier = Modifier.size(15.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            BasicTextField(
+                value = inputUrl,
+                onValueChange = { inputUrl = it },
+                singleLine = true,
+                textStyle = LocalTextStyle.current.copy(
+                    color = Color.White,
+                    fontSize = 12.sp
+                ),
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Go,
+                    keyboardType = KeyboardType.Uri
+                ),
+                keyboardActions = KeyboardActions(
+                    onGo = { navigateTo(inputUrl) }
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 5.dp)
+            )
+            if (inputUrl.isNotBlank()) {
+                IconButton(
+                    onClick = { inputUrl = "" },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Clear",
+                        tint = TextSecondary.copy(alpha = 0.6f),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+
         // Main WebView Viewport Area
         Box(
             modifier = Modifier
@@ -235,6 +337,16 @@ fun FloatingWebViewContent(
                         }
                         false
                     }
+                    webView.setOnHoverListener { v, _ ->
+                        val hitResult = (v as? WebView)?.hitTestResult
+                        val link = when (hitResult?.type) {
+                            WebView.HitTestResult.SRC_ANCHOR_TYPE,
+                            WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> hitResult.extra
+                            else -> null
+                        }
+                        hoveredLink = link
+                        false
+                    }
 
                     // Configure Clients
                     webView.webViewClient = object : WebViewClient() {
@@ -255,6 +367,16 @@ fun FloatingWebViewContent(
                                 e.printStackTrace()
                             }
                             return true
+                        }
+
+                        override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+                            super.doUpdateVisitedHistory(view, url, isReload)
+                            url?.let {
+                                if (it.isNotBlank() && it != "about:blank") {
+                                    currentUrl = it
+                                    inputUrl = it
+                                }
+                            }
                         }
 
                         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -334,6 +456,85 @@ fun FloatingWebViewContent(
                             super.onReceivedTitle(view, title)
                             if (!title.isNullOrBlank()) {
                                 pageTitle = title
+                            }
+                        }
+
+                        override fun onShowFileChooser(
+                            view: WebView?,
+                            filePathCallback: ValueCallback<Array<Uri>>?,
+                            fileChooserParams: FileChooserParams?
+                        ): Boolean {
+                            fileChooserCallback?.onReceiveValue(null)
+                            fileChooserCallback = filePathCallback
+
+                            val isMultiple = fileChooserParams?.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE
+                            val acceptTypes = fileChooserParams?.acceptTypes?.filter { it.isNotBlank() } ?: emptyList()
+                            val isImageUpload = acceptTypes.isEmpty() ||
+                                acceptTypes.any { it.contains("image", ignoreCase = true) || it == "*/*" }
+
+                            val intent = if (isImageUpload) {
+                                // Open Gallery instead of file explorer
+                                Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
+                                    type = "image/*"
+                                    if (isMultiple) {
+                                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                                    }
+                                }
+                            } else {
+                                try {
+                                    fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                                        type = "*/*"
+                                        addCategory(Intent.CATEGORY_OPENABLE)
+                                    }
+                                } catch (e: Exception) {
+                                    Intent(Intent.ACTION_GET_CONTENT).apply {
+                                        type = "*/*"
+                                        addCategory(Intent.CATEGORY_OPENABLE)
+                                    }
+                                }
+                            }
+
+                            try {
+                                fileChooserLauncher.launch(intent)
+                                return true
+                            } catch (e: Exception) {
+                                val fallback = if (isImageUpload) {
+                                    Intent(Intent.ACTION_GET_CONTENT).apply {
+                                        type = "image/*"
+                                        addCategory(Intent.CATEGORY_OPENABLE)
+                                        if (isMultiple) {
+                                            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                                        }
+                                    }
+                                } else {
+                                    Intent(Intent.ACTION_GET_CONTENT).apply {
+                                        type = "*/*"
+                                        addCategory(Intent.CATEGORY_OPENABLE)
+                                    }
+                                }
+                                try {
+                                    fileChooserLauncher.launch(fallback)
+                                    return true
+                                } catch (ex: Exception) {
+                                    fileChooserCallback?.onReceiveValue(null)
+                                    fileChooserCallback = null
+                                    return false
+                                }
+                            }
+                        }
+
+                        override fun onPermissionRequest(request: PermissionRequest?) {
+                            if (request == null) return
+                            val resources = request.resources
+                            if (resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                    request.grant(resources)
+                                } else {
+                                    pendingWebPermissionRequest = request
+                                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            } else {
+                                request.grant(resources)
                             }
                         }
                     }
@@ -561,29 +762,106 @@ fun FloatingWebViewContent(
                 }
             }
 
-            // Middle Status (Domain / Title)
-            Text(
-                text = pageTitle.ifBlank {
-                    try {
-                        Uri.parse(currentUrl).host ?: "Orbit Web"
-                    } catch (e: Exception) {
-                        "Orbit Web"
-                    }
-                },
-                color = TextSecondary.copy(alpha = 0.9f),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            val standingOnUrl = hoveredLink?.takeIf { it.isNotBlank() } ?: currentUrl
+            val currentEngine = remember(context, engineChangeTrigger) {
+                SearchEnginePreferences.getSelectedEngine(context)
+            }
+
+            // Middle Status: Current link user is standing on / viewing
+            Row(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 6.dp)
-            )
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.White.copy(alpha = 0.05f))
+                    .clickable {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                        val clip = android.content.ClipData.newPlainText("URL", standingOnUrl)
+                        clipboard?.setPrimaryClip(clip)
+                        Toast.makeText(context, "Copied: $standingOnUrl", Toast.LENGTH_SHORT).show()
+                    }
+                    .padding(horizontal = 6.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Link,
+                    contentDescription = stringResource(id = R.string.browser_standing_on_link),
+                    tint = accentColor.copy(alpha = 0.85f),
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = standingOnUrl.ifBlank { "about:blank" },
+                    color = TextSecondary.copy(alpha = 0.95f),
+                    fontSize = 10.5.sp,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
+                // Small Search Engine Switcher Button with Dropdown Menu
+                Box {
+                    IconButton(
+                        onClick = { showEngineMenu = true },
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(accentColor.copy(alpha = 0.15f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = stringResource(id = R.string.browser_switch_engine),
+                            tint = accentColor,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showEngineMenu,
+                        onDismissRequest = { showEngineMenu = false },
+                        modifier = Modifier
+                            .background(Color(0xFF131728))
+                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                    ) {
+                        SearchEnginePreferences.ENGINES.forEach { engine ->
+                            val isSelected = engine.id == currentEngine.id
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = engine.name,
+                                        color = if (isSelected) accentColor else Color.White,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        fontSize = 12.5.sp
+                                    )
+                                },
+                                leadingIcon = {
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = accentColor,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    } else {
+                                        Spacer(modifier = Modifier.size(16.dp))
+                                    }
+                                },
+                                onClick = {
+                                    showEngineMenu = false
+                                    SearchEnginePreferences.setSelectedEngine(context, engine.id)
+                                    navigateTo(engine.homeUrl)
+                                    Toast.makeText(context, "Engine: ${engine.name}", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+                    }
+                }
+
                 // Desktop Mode Toggle Button
                 IconButton(
                     onClick = {

@@ -3,7 +3,11 @@ package com.example
 object ExpressionEvaluator {
 
     fun evaluate(expression: String): Double {
-        val sanitized = expression.replace(" ", "")
+        val sanitized = expression
+            .replace(" ", "")
+            .replace("×", "*")
+            .replace("÷", "/")
+            .replace("−", "-")
         if (sanitized.isEmpty()) {
             throw IllegalArgumentException("Empty expression")
         }

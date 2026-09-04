@@ -672,28 +672,44 @@ private data class SystemMemoryMetrics(
     val isLowMemory: Boolean = false
 )
 
+private fun readSystemMemoryMetrics(context: Context): SystemMemoryMetrics {
+    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+    val memoryInfo = ActivityManager.MemoryInfo()
+    activityManager?.getMemoryInfo(memoryInfo)
+
+    val runtime = Runtime.getRuntime()
+    val javaHeap = runtime.totalMemory() - runtime.freeMemory()
+    val nativeHeap = android.os.Debug.getNativeHeapAllocatedSize()
+    val pss = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val pssKb = android.os.Debug.getPss()
+        if (pssKb > 0) pssKb * 1024L else (javaHeap + nativeHeap)
+    } else {
+        javaHeap + nativeHeap
+    }
+
+    val total = if (memoryInfo.totalMem > 0L) memoryInfo.totalMem else (4L * 1024L * 1024L * 1024L)
+    val avail = memoryInfo.availMem.coerceIn(0L, total)
+
+    return SystemMemoryMetrics(
+        availMemBytes = avail,
+        totalMemBytes = total,
+        appHeapBytes = pss.coerceAtLeast(0L),
+        isLowMemory = memoryInfo.lowMemory || (avail.toDouble() / total <= 0.10)
+    )
+}
+
 @Composable
 fun SystemPerformanceRamCard(
     context: Context,
     accentColor: Color,
     modifier: Modifier = Modifier
 ) {
-    var metrics by remember { mutableStateOf(SystemMemoryMetrics()) }
+    var metrics by remember { mutableStateOf(readSystemMemoryMetrics(context)) }
 
     LaunchedEffect(Unit) {
-        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
-        val memoryInfo = ActivityManager.MemoryInfo()
         while (coroutineContext.isActive) {
-            activityManager?.getMemoryInfo(memoryInfo)
-            val runtime = Runtime.getRuntime()
-            val heap = runtime.totalMemory() - runtime.freeMemory()
-            metrics = SystemMemoryMetrics(
-                availMemBytes = memoryInfo.availMem,
-                totalMemBytes = memoryInfo.totalMem,
-                appHeapBytes = heap,
-                isLowMemory = memoryInfo.lowMemory
-            )
-            delay(3000)
+            metrics = readSystemMemoryMetrics(context)
+            delay(2000)
         }
     }
 
@@ -703,16 +719,16 @@ fun SystemPerformanceRamCard(
     val inkDim = Color(0xFF5A6178)
 
     val totalMem = metrics.totalMemBytes.coerceAtLeast(1L)
-    val availMem = metrics.availMemBytes
+    val availMem = metrics.availMemBytes.coerceIn(0L, totalMem)
     val usedMem = (totalMem - availMem).coerceAtLeast(0L)
-    val usedPercent = (usedMem.toDouble() / totalMem).toFloat().coerceIn(0f, 1f)
+    val usedPercent = (usedMem.toDouble() / totalMem).toFloat().coerceIn(0.01f, 1f)
     val usedPercentInt = (usedPercent * 100).toInt()
 
-    val availGb = availMem.toFloat() / (1024f * 1024f * 1024f)
-    val totalGb = totalMem.toFloat() / (1024f * 1024f * 1024f)
-    val heapMb = metrics.appHeapBytes.toFloat() / (1024f * 1024f)
+    val availGb = (availMem.toDouble() / (1024.0 * 1024.0 * 1024.0)).toFloat()
+    val totalGb = (totalMem.toDouble() / (1024.0 * 1024.0 * 1024.0)).toFloat()
+    val heapMb = (metrics.appHeapBytes.toDouble() / (1024.0 * 1024.0)).toFloat()
 
-    val isOptimal = !metrics.isLowMemory && ((availMem.toDouble() / totalMem) > 0.15)
+    val isOptimal = !metrics.isLowMemory && ((availMem.toDouble() / totalMem) > 0.12)
     val statusText = if (isOptimal) {
         stringResource(id = R.string.status_optimal_performance)
     } else {

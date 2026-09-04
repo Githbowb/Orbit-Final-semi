@@ -179,9 +179,10 @@
 
     <!-- Overlay strings -->
     <string name="overlay_launchpad">سکوی اوربیت</string>
-    <string name="overlay_no_usage_permission">مجوز دسترسی به آمار فعال نیست؛ برنامه‌ها بر اساس اجراهای زنده مرتب شده‌اند.</string>
-    <string name="overlay_no_usage_stats">آماری یافت نشد؛ برنامه‌ها بر اساس میزان استفاده واقعی مرتب شده‌اند.</string>
+    <string name="overlay_no_usage_permission">مجوز دسترسی به آمار فعال نیست؛ برنامه‌ها از الف تا ی مرتب شده‌اند.</string>
+    <string name="overlay_no_usage_stats">آماری یافت نشد؛ برنامه‌ها از الف تا ی مرتب شده‌اند.</string>
     <string name="overlay_most_used">استفاده واقعی اخیر</string>
+    <string name="overlay_apps_a_z">برنامه‌ها از الف تا ی</string>
     <string name="overlay_search_placeholder">جستجوی برنامه‌ها...</string>
     <string name="overlay_no_matching">هیچ برنامه‌ای یافت نشد</string>
     <string name="overlay_favorites">علاقه‌مندی‌ها ⭐</string>
@@ -256,4 +257,13 @@
     <string name="welcome_to_orbit">به اوربیت خوش آمدید</string>
     <string name="search_engine_title">موتور جستجو</string>
     <string name="search_engine_desc">موتور جستجوی پیش‌فرض برای مرورگر شناور</string>
+    <string name="browser_upload_picture">بارگذاری عکس</string>
+    <string name="browser_voice_chat">گفتگوی صوتی</string>
+    <string name="browser_voice_chat_title">ورودی و گفتگوی صوتی</string>
+    <string name="browser_listening">در حال گوش دادن… لطفاً صحبت کنید</string>
+    <string name="browser_open_chatgpt_voice">باز کردن گفتگوی صوتی ChatGPT</string>
+    <string name="browser_switch_engine">تغییر موتور جستجو</string>
+    <string name="browser_standing_on_link">پیوند فعلی</string>
+    <string name="dismiss_permission_warning">رد اعلان</string>
+    <string name="delete_banner">حذف</string>
 </resources>
