@@ -273,4 +273,16 @@
     <string name="browser_standing_on_link">Current link</string>
     <string name="dismiss_permission_warning">Dismiss notification</string>
     <string name="delete_banner">Delete</string>
+    <string name="browser_save_images">Save Images</string>
+    <string name="browser_save_image">Save to Gallery</string>
+    <string name="browser_images_on_page">Pictures on this Page</string>
+    <string name="browser_no_images_found">No pictures detected on this page</string>
+    <string name="browser_saving_image">Saving picture to Gallery...</string>
+    <string name="browser_image_saved">Saved picture to Gallery &amp; Downloads!</string>
+    <string name="browser_share_image">Share Picture</string>
+    <string name="browser_copy_image_link">Copy Picture Link</string>
+    <string name="browser_image_options">Picture Options</string>
+    <string name="browser_save_all_images">Save All to Gallery</string>
+    <string name="browser_page_images">Pictures on this Page</string>
+    <string name="browser_scanning_images">Scanning page for pictures…</string>
 </resources>

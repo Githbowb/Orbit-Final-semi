@@ -20,6 +20,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
@@ -64,6 +65,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.ui.theme.MyApplicationTheme
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.example.R
 import com.example.capture.ScreenCaptureManager
@@ -276,7 +279,7 @@ fun OverlayScreen(onDismiss: () -> Unit) {
     val isImeVisible = WindowInsets.isImeVisible
 
     val animatedWidthFraction by animateFloatAsState(
-        targetValue = if (isMaximized && selectedTab == OrbitTab.BROWSER) 0.96f else 0.92f,
+        targetValue = if (isMaximized && selectedTab == OrbitTab.BROWSER) 0.998f else 0.92f,
         animationSpec = androidx.compose.animation.core.spring(
             dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
             stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
@@ -284,7 +287,7 @@ fun OverlayScreen(onDismiss: () -> Unit) {
         label = "windowWidth"
     )
     val animatedHeightFraction by animateFloatAsState(
-        targetValue = if (isImeVisible) 0.96f else if (isMaximized && selectedTab == OrbitTab.BROWSER) 0.88f else 0.82f,
+        targetValue = if (isImeVisible) 0.98f else if (isMaximized && selectedTab == OrbitTab.BROWSER) 0.992f else 0.82f,
         animationSpec = androidx.compose.animation.core.spring(
             dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
             stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
@@ -416,9 +419,9 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                     .fillMaxWidth(animatedWidthFraction)
                     .fillMaxHeight(animatedHeightFraction)
                     .then(if (isImeVisible) Modifier.padding(top = 8.dp) else Modifier)
-                    .widthIn(max = if (isMaximized && selectedTab == OrbitTab.BROWSER) 850.dp else 600.dp)
+                    .widthIn(max = if (isMaximized && selectedTab == OrbitTab.BROWSER) 3600.dp else 600.dp)
                     .border(
-                        width = 1.5.dp,
+                        width = if (isMaximized && selectedTab == OrbitTab.BROWSER) 1.dp else 1.5.dp,
                         brush = Brush.verticalGradient(
                             listOf(
                                 accentColor.copy(alpha = if (isMaximized) 0.85f else 0.95f),
@@ -426,7 +429,7 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                                 Color.White.copy(alpha = 0.06f)
                             )
                         ),
-                        shape = RoundedCornerShape(if (isMaximized && selectedTab == OrbitTab.BROWSER) 22.dp else 24.dp)
+                        shape = RoundedCornerShape(if (isMaximized && selectedTab == OrbitTab.BROWSER) 8.dp else 24.dp)
                     )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -435,7 +438,7 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                         // Prevent dismissal when clicking inside the card
                     },
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0C0F1A)),
-                shape = RoundedCornerShape(if (isMaximized && selectedTab == OrbitTab.BROWSER) 22.dp else 24.dp),
+                shape = RoundedCornerShape(if (isMaximized && selectedTab == OrbitTab.BROWSER) 8.dp else 24.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 24.dp)
             ) {
                 Box(
@@ -455,151 +458,138 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(
-                                horizontal = if (selectedTab == OrbitTab.BROWSER) 14.dp else 18.dp,
-                                vertical = if (selectedTab == OrbitTab.BROWSER) 10.dp else 16.dp
+                                horizontal = if (isMaximized && selectedTab == OrbitTab.BROWSER) 4.dp else if (selectedTab == OrbitTab.BROWSER) 8.dp else 16.dp,
+                                vertical = if (isMaximized && selectedTab == OrbitTab.BROWSER) 4.dp else if (selectedTab == OrbitTab.BROWSER) 8.dp else 14.dp
                             )
                     ) {
-                        // Top Header Bar: Clean Centered Title for standard tabs; Dynamic Controls for Browser tab
-                        if (selectedTab == OrbitTab.BROWSER) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(32.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
+                        // When maximized in the browser, hide the top header for true full screen immersion
+                        AnimatedVisibility(
+                            visible = !(isMaximized && selectedTab == OrbitTab.BROWSER),
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
+                        ) {
+                            Column {
+                                // Prominent Orbit Launchpad Header
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(accentColor)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = stringResource(id = R.string.overlay_launchpad),
-                                        fontSize = 13.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color.White.copy(alpha = 0.95f),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        letterSpacing = 0.3.sp
-                                    )
-                                }
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    // Maximize / Restore Button
-                                    IconButton(
-                                        onClick = { isMaximized = !isMaximized },
-                                        modifier = Modifier
-                                            .size(28.dp)
-                                            .clip(CircleShape)
-                                            .background(accentColor.copy(alpha = 0.18f))
-                                            .border(1.dp, accentColor.copy(alpha = 0.4f), CircleShape)
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isMaximized) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                                            contentDescription = if (isMaximized) stringResource(R.string.overlay_restore) else stringResource(R.string.overlay_maximize),
-                                            tint = accentColor,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-
-                                    // Close Button (X)
-                                    IconButton(
-                                        onClick = { animateDismiss() },
-                                        modifier = Modifier
-                                            .size(28.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.White.copy(alpha = 0.08f))
-                                            .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = stringResource(R.string.overlay_close),
-                                            tint = Color.White.copy(alpha = 0.85f),
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        } else {
-                            // Standard Views: Sleek futuristic Header Pill with Glowing Orbit Dot
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(accentColor.copy(alpha = 0.12f))
-                                        .border(
-                                            1.dp,
-                                            Brush.horizontalGradient(
-                                                listOf(
-                                                    accentColor.copy(alpha = 0.5f),
-                                                    accentColor.copy(alpha = 0.2f),
-                                                    accentColor.copy(alpha = 0.5f)
-                                                )
-                                            ),
-                                            RoundedCornerShape(20.dp)
-                                        )
-                                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .size(7.dp)
+                                                .size(38.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(
+                                                    Brush.radialGradient(
+                                                        listOf(
+                                                            accentColor.copy(alpha = 0.35f),
+                                                            accentColor.copy(alpha = 0.12f)
+                                                        )
+                                                    )
+                                                )
+                                                .border(1.2.dp, accentColor.copy(alpha = 0.6f), RoundedCornerShape(12.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Image(
+                                                painter = painterResource(id = R.drawable.ic_orbit_neon),
+                                                contentDescription = "Orbit",
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                text = stringResource(R.string.overlay_launchpad),
+                                                color = Color.White,
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                letterSpacing = 0.5.sp
+                                            )
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(6.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color(0xFF00E676))
+                                                )
+                                                Spacer(modifier = Modifier.width(5.dp))
+                                                Text(
+                                                    text = "FLOATING OVERLAY ACTIVE",
+                                                    color = Color.White.copy(alpha = 0.55f),
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    letterSpacing = 0.8.sp
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Window controls: Maximize/Restore & Close
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(
+                                            onClick = { isMaximized = !isMaximized },
+                                            modifier = Modifier
+                                                .size(34.dp)
                                                 .clip(CircleShape)
-                                                .background(accentColor)
-                                        )
-                                        Text(
-                                            text = stringResource(id = R.string.overlay_launchpad).uppercase(),
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            letterSpacing = 1.6.sp
-                                        )
+                                                .background(Color.White.copy(alpha = 0.08f))
+                                                .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isMaximized) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                                contentDescription = stringResource(if (isMaximized) R.string.overlay_restore else R.string.overlay_maximize),
+                                                tint = Color.White.copy(alpha = 0.85f),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        IconButton(
+                                            onClick = { animateDismiss() },
+                                            modifier = Modifier
+                                                .size(34.dp)
+                                                .clip(CircleShape)
+                                                .background(Color.White.copy(alpha = 0.08f))
+                                                .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = stringResource(R.string.overlay_close),
+                                                tint = Color.White.copy(alpha = 0.85f),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
                                     }
                                 }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Tab Switcher Bar
+                                TabSwitcherBar(
+                                    selectedTab = selectedTab,
+                                    onTabSelected = { tab ->
+                                        if (tab != OrbitTab.BROWSER) {
+                                            isMaximized = false
+                                        }
+                                        selectedTab = tab
+                                        val key = when (tab) {
+                                            OrbitTab.LAUNCHER -> ToolsPreferences.KEY_LAUNCHPAD
+                                            OrbitTab.VAULT -> ToolsPreferences.KEY_VAULT
+                                            OrbitTab.CALCULATOR -> ToolsPreferences.KEY_CALCULATOR
+                                            OrbitTab.SPEED_DIAL -> ToolsPreferences.KEY_SPEED_DIAL
+                                            OrbitTab.BROWSER -> ToolsPreferences.KEY_BROWSER
+                                        }
+                                        ToolsPreferences.incrementLaunchCount(context, key)
+                                    },
+                                    accentColor = accentColor
+                                )
+
+                                Spacer(modifier = Modifier.height(6.dp))
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        // Tab switcher bar
-                        TabSwitcherBar(
-                            selectedTab = selectedTab,
-                            onTabSelected = { tab ->
-                                if (tab != OrbitTab.BROWSER) {
-                                    isMaximized = false
-                                }
-                                selectedTab = tab
-                                val key = when (tab) {
-                                    OrbitTab.LAUNCHER -> ToolsPreferences.KEY_LAUNCHPAD
-                                    OrbitTab.VAULT -> ToolsPreferences.KEY_VAULT
-                                    OrbitTab.CALCULATOR -> ToolsPreferences.KEY_CALCULATOR
-                                    OrbitTab.SPEED_DIAL -> ToolsPreferences.KEY_SPEED_DIAL
-                                    OrbitTab.BROWSER -> ToolsPreferences.KEY_BROWSER
-                                }
-                                ToolsPreferences.incrementLaunchCount(context, key)
-                            },
-                            accentColor = accentColor
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
 
                         // Tab Content Switcher with maximum available vertical height
                         Box(modifier = Modifier.weight(1f)) {
@@ -759,6 +749,7 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                                 accentColor = accentColor,
                                 isMaximized = isMaximized,
                                 onToggleMaximize = { isMaximized = !isMaximized },
+                                onClose = { animateDismiss() },
                                 onUrlNavigated = { url -> activeBrowserUrl = url }
                             )
                         }
