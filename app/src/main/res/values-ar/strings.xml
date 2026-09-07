@@ -14,7 +14,7 @@
     <string name="launch_control_orbit">التحكم بالإطلاق · أوربت</string>
     <string name="in_orbit">في المدار</string>
     <!-- System Performance Monitor -->
-    <string name="ram_monitor_title">أداء النظام والذاكرة</string>
+    <string name="ram_monitor_title">أداء النظام</string>
     <string name="ram_usage_label">استهلاك ذاكرة النظام</string>
     <string name="ram_available_fmt">%1$.1f ج.ب متاح</string>
     <string name="ram_total_fmt">%1$.1f ج.ب الإجمالي</string>
@@ -25,8 +25,14 @@
     <string name="overlay_impact_title">تأثير الخدمة العائمة</string>
     <string name="status_optimal_performance">أداء مثالي</string>
     <string name="status_high_usage_warning">تحذير استهلاك عالي</string>
+    <string name="status_optimal">مثالي</string>
+    <string name="status_high_usage">استهلاك عالي</string>
     <string name="unit_free">متاح</string>
     <string name="unit_total">الإجمالي</string>
+    <string name="btn_clean_ram">تنظيف الذاكرة</string>
+    <string name="btn_cleaning">جاري التنظيف…</string>
+    <string name="msg_ram_cleaned">تم تحرير ذاكرة أوربت! توفير %1$.1f م.ب</string>
+    <string name="msg_ram_already_optimal">ذاكرة أوربت في أدنى مستوى مثالي (%1$.1f م.ب)</string>
 
     <!-- Orbit Tab -->
     <string name="orbit_dashboard_title">لوحة تحكم أوربت</string>

@@ -691,17 +691,27 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                                 onSpeedDialUrlChange = { speedDialUrlText = it },
                                 speedDialEntries = speedDialEntries,
                                 onSaveLink = {
-                                    coroutineScope.launch(Dispatchers.IO) {
-                                        repository.insertSpeedDialEntry(
-                                            SpeedDialEntry(
-                                                label = speedDialLabelText,
-                                                url = speedDialUrlText,
-                                                sortOrder = speedDialEntries.size
+                                    val trimmedLabel = speedDialLabelText.trim()
+                                    val trimmedUrl = speedDialUrlText.trim()
+                                    if (trimmedLabel.isNotBlank() && trimmedUrl.isNotBlank()) {
+                                        val formatted = if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
+                                            "https://$trimmedUrl"
+                                        } else {
+                                            trimmedUrl
+                                        }
+                                        coroutineScope.launch(Dispatchers.IO) {
+                                            repository.insertSpeedDialEntry(
+                                                SpeedDialEntry(
+                                                    label = trimmedLabel,
+                                                    url = formatted,
+                                                    sortOrder = speedDialEntries.size
+                                                )
                                             )
-                                        )
-                                        withContext(Dispatchers.Main) {
-                                            speedDialLabelText = ""
-                                            speedDialUrlText = ""
+                                            withContext(Dispatchers.Main) {
+                                                speedDialLabelText = ""
+                                                speedDialUrlText = ""
+                                                Toast.makeText(context, context.getString(R.string.link_saved), Toast.LENGTH_SHORT).show()
+                                            }
                                         }
                                     }
                                 },
@@ -713,6 +723,7 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                                 accentColor = accentColor,
                                 onOpenInFloatingWebView = { url ->
                                     activeBrowserUrl = url
+                                    BrowserStateManager.forceNavigate(context, url)
                                     selectedTab = OrbitTab.BROWSER
                                     ToolsPreferences.incrementLaunchCount(context, ToolsPreferences.KEY_BROWSER)
                                 }

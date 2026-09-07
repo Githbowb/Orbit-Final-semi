@@ -14,7 +14,7 @@
     <string name="launch_control_orbit">کنترل پرتاب · اوربیت</string>
     <string name="in_orbit">در مدار</string>
     <!-- System Performance Monitor -->
-    <string name="ram_monitor_title">عملکرد سیستم و حافظه</string>
+    <string name="ram_monitor_title">عملکرد سیستم</string>
     <string name="ram_usage_label">میزان مصرف حافظه سیستم</string>
     <string name="ram_available_fmt">%1$.1f گیگابایت آزاد</string>
     <string name="ram_total_fmt">%1$.1f گیگابایت کل</string>
@@ -25,8 +25,14 @@
     <string name="overlay_impact_title">تأثیر سرویس شناور</string>
     <string name="status_optimal_performance">عملکرد بهینه</string>
     <string name="status_high_usage_warning">هشدار مصرف بالا</string>
+    <string name="status_optimal">بهینه</string>
+    <string name="status_high_usage">مصرف بالا</string>
     <string name="unit_free">آزاد</string>
     <string name="unit_total">کل</string>
+    <string name="btn_clean_ram">پاکسازی حافظه</string>
+    <string name="btn_cleaning">در حال پاکسازی…</string>
+    <string name="msg_ram_cleaned">حافظه اوربیت آزاد شد! %1$.1f مگابایت پاک شد</string>
+    <string name="msg_ram_already_optimal">حافظه اوربیت در کمترین حالت بهینه است (%1$.1f مگابایت)</string>
 
     <!-- Orbit Tab -->
     <string name="orbit_dashboard_title">داشبورد اوربیت</string>

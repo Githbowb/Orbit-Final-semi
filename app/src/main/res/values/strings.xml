@@ -14,7 +14,7 @@
     <string name="launch_control_orbit">LAUNCH CONTROL · ORBIT</string>
     <string name="in_orbit">IN ORBIT</string>
     <!-- System Performance Monitor -->
-    <string name="ram_monitor_title">SYSTEM PERFORMANCE</string>
+    <string name="ram_monitor_title">System Performance</string>
     <string name="ram_usage_label">System RAM Usage</string>
     <string name="ram_available_fmt">%1$.1f GB Free</string>
     <string name="ram_total_fmt">%1$.1f GB Total</string>
@@ -25,11 +25,14 @@
     <string name="overlay_impact_title">Overlay Service Impact</string>
     <string name="status_optimal_performance">Optimal Performance</string>
     <string name="status_high_usage_warning">High Usage Warning</string>
+    <string name="status_optimal">OPTIMAL</string>
+    <string name="status_high_usage">HIGH LOAD</string>
     <string name="unit_free">Free</string>
     <string name="unit_total">Total</string>
     <string name="btn_clean_ram">CLEAN RAM</string>
     <string name="btn_cleaning">CLEANING…</string>
     <string name="msg_ram_cleaned">Orbit memory cleared! Freed %1$.1f MB</string>
+    <string name="msg_ram_already_optimal">Orbit RAM is already at optimal baseline (%1$.1f MB)</string>
 
     <!-- Orbit Tab -->
     <string name="orbit_dashboard_title">Orbit Dashboard</string>
@@ -179,6 +182,7 @@
     <string name="speed_dial_links">Speed Dial Links</string>
     <string name="no_links_yet">No saved links yet. Add your favorite websites above!</string>
     <string name="invalid_link">Invalid link: %1$s</string>
+    <string name="link_saved">Link saved to Speed Dial</string>
 
     <!-- Overlay strings -->
     <string name="overlay_launchpad">Orbit Launchpad</string>

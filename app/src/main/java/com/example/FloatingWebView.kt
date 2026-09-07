@@ -246,6 +246,35 @@ fun FloatingWebViewContent(
         }
     }
 
+    // Forcefully delete whatever link is on browser tab and refresh with speed dial link when requested
+    val navigationRequest by BrowserStateManager.navigationRequests.collectAsState()
+    LaunchedEffect(navigationRequest) {
+        navigationRequest?.let { req ->
+            val target = normalizeUrl(req.url)
+            currentUrl = target
+            inputUrl = target
+            pageTitle = ""
+            errorMessage = null
+            isLoading = true
+            loadingProgress = 0
+            canGoBack = false
+            canGoForward = false
+
+            webViewInstance?.apply {
+                stopLoading()
+                clearHistory()
+                if (url == target) {
+                    reload()
+                } else {
+                    loadUrl(target)
+                }
+            }
+            focusManager.clearFocus()
+            BrowserStateManager.saveLastVisitedUrl(context, target)
+            onUrlNavigated?.invoke(target)
+        }
+    }
+
     // Auto-refresh to the new engine's homepage whenever the user selects a new search engine
     val engineChangeTrigger by SearchEnginePreferences.engineChanges.collectAsState()
     LaunchedEffect(engineChangeTrigger) {
@@ -967,7 +996,25 @@ fun FloatingWebViewContent(
 
                     // Restore or initialize URL/State
                     val savedBundle = BrowserStateManager.getSavedBundle()
-                    if (initialUrl.isNotBlank() && initialUrl != webView.url) {
+                    val currentNavReq = BrowserStateManager.navigationRequests.value
+                    if (currentNavReq != null && currentNavReq.forceClearAndRefresh) {
+                        val target = normalizeUrl(currentNavReq.url)
+                        currentUrl = target
+                        inputUrl = target
+                        pageTitle = ""
+                        errorMessage = null
+                        isLoading = true
+                        loadingProgress = 0
+                        canGoBack = false
+                        canGoForward = false
+                        webView.stopLoading()
+                        webView.clearHistory()
+                        if (webView.url == target) {
+                            webView.reload()
+                        } else {
+                            webView.loadUrl(target)
+                        }
+                    } else if (initialUrl.isNotBlank() && initialUrl != webView.url) {
                         val target = normalizeUrl(initialUrl)
                         currentUrl = target
                         inputUrl = target
@@ -1288,98 +1335,6 @@ fun FloatingWebViewContent(
                         tint = if (isDesktopMode) accentColor else Color.White.copy(alpha = 0.8f),
                         modifier = Modifier.size(15.dp)
                     )
-                }
-
-                // Downloads / Save Current Media Quick Action
-                IconButton(
-                    onClick = {
-                        val clean = currentUrl.substringBefore('?').lowercase()
-                        val isDirectFile = clean.endsWith(".pdf") || clean.endsWith(".apk") || clean.endsWith(".zip") ||
-                            clean.endsWith(".png") || clean.endsWith(".jpg") || clean.endsWith(".jpeg") ||
-                            clean.endsWith(".webp") || clean.endsWith(".gif") || clean.endsWith(".svg") ||
-                            clean.endsWith(".csv") || clean.endsWith(".docx") || clean.endsWith(".xlsx") ||
-                            currentUrl.startsWith("blob:") || currentUrl.startsWith("data:")
-
-                        if (isDirectFile && currentUrl.isNotBlank() && currentUrl != "about:blank") {
-                            triggerDownloadConfirmation(
-                                currentUrl,
-                                webViewInstance?.settings?.userAgentString,
-                                null,
-                                null,
-                                null,
-                                currentUrl,
-                                webViewInstance
-                            )
-                        } else {
-                            // Scan page for AI generated images and media
-                            isScanningMedia = true
-                            val scanScript = """
-                                (function() {
-                                    var list = [];
-                                    var seen = {};
-                                    function add(u, t, w, h) {
-                                        if (!u || seen[u]) return;
-                                        if (u.startsWith('data:image/svg') || u.indexOf('favicon') !== -1 || u.indexOf('tracking') !== -1 || u.indexOf('analytics') !== -1) return;
-                                        seen[u] = true;
-                                        list.push({ url: u, title: t || 'AI Image', width: w || 0, height: h || 0 });
-                                    }
-                                    var cvs = document.querySelectorAll('canvas');
-                                    for (var i = 0; i < cvs.length; i++) {
-                                        var c = cvs[i];
-                                        if (c.width >= 80 && c.height >= 80) {
-                                            try {
-                                                var d = c.toDataURL('image/png');
-                                                if (d && d.length > 200) add(d, 'AI Canvas ' + (i + 1), c.width, c.height);
-                                            } catch(e) {}
-                                        }
-                                    }
-                                    var imgs = document.querySelectorAll('img');
-                                    for (var j = 0; j < imgs.length; j++) {
-                                        var im = imgs[j];
-                                        var s = im.currentSrc || im.src;
-                                        var w = im.naturalWidth || im.width || 0;
-                                        var h = im.naturalHeight || im.height || 0;
-                                        if ((w >= 80 && h >= 80) || (s && (s.startsWith('blob:') || s.startsWith('data:image') || s.indexOf('generation') !== -1 || s.indexOf('blob.core.windows.net') !== -1 || s.indexOf('output') !== -1 || s.indexOf('cdn') !== -1))) {
-                                            add(s, im.alt || ('AI Image ' + (j + 1)), w, h);
-                                        }
-                                    }
-                                    var bgEls = document.querySelectorAll('div, section, article, a, [role="img"]');
-                                    for (var k = 0; k < bgEls.length && list.length < 30; k++) {
-                                        var b = window.getComputedStyle(bgEls[k]).backgroundImage;
-                                        if (b && b !== 'none') {
-                                            var m = b.match(/url\(['"]?(.*?)['"]?\)/);
-                                            if (m && m[1] && (m[1].startsWith('http') || m[1].startsWith('blob:') || m[1].startsWith('data:'))) {
-                                                add(m[1], 'Generated Media', bgEls[k].clientWidth || 0, bgEls[k].clientHeight || 0);
-                                            }
-                                        }
-                                    }
-                                    list.sort(function(a, b) {
-                                        return (b.width * b.height) - (a.width * a.height);
-                                    });
-                                    if (window.AndroidDownloadBridge && window.AndroidDownloadBridge.onMediaScanned) {
-                                        window.AndroidDownloadBridge.onMediaScanned(JSON.stringify(list.slice(0, 30)));
-                                    }
-                                })();
-                            """.trimIndent()
-                            webViewInstance?.evaluateJavascript(scanScript, null)
-                        }
-                    },
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    if (isScanningMedia) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(15.dp),
-                            strokeWidth = 2.dp,
-                            color = accentColor
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Download,
-                            contentDescription = "Downloads & Media Capture",
-                            tint = accentColor,
-                            modifier = Modifier.size(15.dp)
-                        )
-                    }
                 }
 
                 // Open in External Default Browser Button

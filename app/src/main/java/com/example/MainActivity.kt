@@ -23,7 +23,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,6 +51,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -679,14 +683,7 @@ private fun readSystemMemoryMetrics(context: Context): SystemMemoryMetrics {
     activityManager?.getMemoryInfo(memoryInfo)
 
     val runtime = Runtime.getRuntime()
-    val javaHeap = runtime.totalMemory() - runtime.freeMemory()
-    val nativeHeap = android.os.Debug.getNativeHeapAllocatedSize()
-    val pss = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        val pssKb = android.os.Debug.getPss()
-        if (pssKb > 0) pssKb * 1024L else (javaHeap + nativeHeap)
-    } else {
-        javaHeap + nativeHeap
-    }
+    val javaHeap = (runtime.totalMemory() - runtime.freeMemory()).coerceAtLeast(0L)
 
     val total = if (memoryInfo.totalMem > 0L) memoryInfo.totalMem else (4L * 1024L * 1024L * 1024L)
     val avail = memoryInfo.availMem.coerceIn(0L, total)
@@ -694,9 +691,41 @@ private fun readSystemMemoryMetrics(context: Context): SystemMemoryMetrics {
     return SystemMemoryMetrics(
         availMemBytes = avail,
         totalMemBytes = total,
-        appHeapBytes = pss.coerceAtLeast(0L),
+        appHeapBytes = javaHeap,
         isLowMemory = memoryInfo.lowMemory || (avail.toDouble() / total <= 0.10)
     )
+}
+
+private fun performOrbitRamClean(context: Context): Float {
+    val runtime = Runtime.getRuntime()
+    val beforeHeap = (runtime.totalMemory() - runtime.freeMemory()).coerceAtLeast(0L)
+
+    // 1. Purge loaded app launcher cache & icon ImageBitmaps
+    AppCache.clearMemoryCache()
+
+    // 2. Clear Coil image memory cache if active
+    try {
+        val imageLoader = coil.Coil.imageLoader(context)
+        imageLoader.memoryCache?.clear()
+    } catch (_: Throwable) {}
+
+    // 3. Clear browser retained webview caches & trim memory
+    try {
+        BrowserStateManager.getRetainedWebView()?.apply {
+            clearCache(true)
+            clearFormData()
+            clearHistory()
+        }
+    } catch (_: Throwable) {}
+
+    // 4. Force JVM garbage collection & finalization passes
+    System.gc()
+    runtime.runFinalization()
+    System.gc()
+
+    val afterHeap = (runtime.totalMemory() - runtime.freeMemory()).coerceAtLeast(0L)
+    val freedBytes = (beforeHeap - afterHeap).coerceAtLeast(0L)
+    return (freedBytes.toDouble() / (1024.0 * 1024.0)).toFloat()
 }
 
 @Composable
@@ -739,6 +768,35 @@ fun SystemPerformanceRamCard(
         stringResource(id = R.string.status_high_usage_warning)
     }
     val statusColor = if (isOptimal) emeraldGreen else alertPink
+
+    var isCleaning by remember { mutableStateOf(false) }
+    var cleanResultMsg by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val performClean: () -> Unit = {
+        if (!isCleaning) {
+            coroutineScope.launch {
+                isCleaning = true
+                val freed = performOrbitRamClean(context)
+                delay(600)
+                metrics = readSystemMemoryMetrics(context)
+                val afterMb = (metrics.appHeapBytes.toDouble() / (1024.0 * 1024.0)).toFloat()
+                isCleaning = false
+
+                val msg = if (freed > 0.5f) {
+                    context.getString(R.string.msg_ram_cleaned, freed)
+                } else {
+                    context.getString(R.string.msg_ram_already_optimal, afterMb)
+                }
+                cleanResultMsg = msg
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                delay(3500)
+                if (cleanResultMsg == msg) {
+                    cleanResultMsg = null
+                }
+            }
+        }
+    }
 
     // Smooth gauge & progress animations
     val animatedPercent by animateFloatAsState(
@@ -837,13 +895,13 @@ fun SystemPerformanceRamCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f, fill = false),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(34.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(signalOrange.copy(alpha = 0.15f))
                                 .border(1.dp, signalOrange.copy(alpha = 0.45f), RoundedCornerShape(10.dp)),
@@ -853,7 +911,7 @@ fun SystemPerformanceRamCard(
                                 imageVector = Icons.Default.Speed,
                                 contentDescription = null,
                                 tint = signalOrange,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
 
@@ -882,9 +940,9 @@ fun SystemPerformanceRamCard(
                                 color = inkLight,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.3.sp,
+                                letterSpacing = 0.2.sp,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                softWrap = false
                             )
                         }
                     }
@@ -892,25 +950,30 @@ fun SystemPerformanceRamCard(
                     Spacer(modifier = Modifier.width(8.dp))
 
                     // Live Status Pill with glowing animated beacon
+                    val shortStatusText = if (isOptimal) {
+                        stringResource(id = R.string.status_optimal)
+                    } else {
+                        stringResource(id = R.string.status_high_usage)
+                    }
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(12.dp))
                             .background(statusColor.copy(alpha = 0.12f))
                             .border(1.dp, statusColor.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(7.dp)
+                                    .size(6.dp)
                                     .clip(CircleShape)
                                     .background(statusColor.copy(alpha = pulseAlpha))
                             )
                             Text(
-                                text = statusText,
+                                text = shortStatusText,
                                 color = statusColor,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
@@ -1295,7 +1358,8 @@ fun SystemPerformanceRamCard(
                     Card(
                         modifier = Modifier
                             .weight(1f)
-                            .border(1.dp, signalOrange.copy(alpha = 0.22f), RoundedCornerShape(14.dp)),
+                            .border(1.dp, signalOrange.copy(alpha = 0.22f), RoundedCornerShape(14.dp))
+                            .clickable { performClean() },
                         colors = CardDefaults.cardColors(containerColor = Color(0x10FFFFFF)),
                         shape = RoundedCornerShape(14.dp)
                     ) {
@@ -1312,22 +1376,34 @@ fun SystemPerformanceRamCard(
                                     .padding(horizontal = 9.dp, vertical = 9.dp)
                             ) {
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Layers,
+                                            contentDescription = null,
+                                            tint = signalOrange,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Text(
+                                            text = stringResource(id = R.string.app_heap_title),
+                                            color = inkDim,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                     Icon(
-                                        imageVector = Icons.Default.Layers,
-                                        contentDescription = null,
-                                        tint = signalOrange,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Text(
-                                        text = stringResource(id = R.string.app_heap_title),
-                                        color = inkDim,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        imageVector = Icons.Default.CleaningServices,
+                                        contentDescription = stringResource(id = R.string.btn_clean_ram),
+                                        tint = signalOrange.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(11.dp)
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(5.dp))
@@ -1357,6 +1433,129 @@ fun SystemPerformanceRamCard(
                                         )
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Clean Orbit RAM Cockpit Action Bar
+                Button(
+                    onClick = { performClean() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .testTag("clean_ram_button"),
+                    enabled = !isCleaning,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = signalOrange.copy(alpha = 0.16f),
+                        contentColor = signalOrange,
+                        disabledContainerColor = signalOrange.copy(alpha = 0.08f),
+                        disabledContentColor = signalOrange.copy(alpha = 0.5f)
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (isCleaning) neonCyan.copy(alpha = 0.7f) else signalOrange.copy(alpha = 0.45f)
+                    ),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isCleaning) {
+                            val rotation by rememberInfiniteTransition(label = "cleanSpin").animateFloat(
+                                initialValue = 0f,
+                                targetValue = 360f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(800, easing = LinearEasing)
+                                ),
+                                label = "cleanSpinAngle"
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .rotate(rotation),
+                                tint = neonCyan
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(id = R.string.btn_cleaning),
+                                color = neonCyan,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.CleaningServices,
+                                contentDescription = stringResource(id = R.string.btn_clean_ram),
+                                modifier = Modifier.size(16.dp),
+                                tint = signalOrange
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(id = R.string.btn_clean_ram),
+                                color = signalOrange,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.8.sp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(signalOrange.copy(alpha = 0.2f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "ORBIT HEAP",
+                                    color = signalOrange,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Clean Result Feedback Banner
+                AnimatedVisibility(
+                    visible = cleanResultMsg != null,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    cleanResultMsg?.let { msg ->
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(emeraldGreen.copy(alpha = 0.12f))
+                                    .border(1.dp, emeraldGreen.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = emeraldGreen,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Text(
+                                    text = msg,
+                                    color = emeraldGreen,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
                     }
