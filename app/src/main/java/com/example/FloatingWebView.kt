@@ -47,6 +47,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -90,6 +93,20 @@ import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
+
+data class PendingDownloadPrompt(
+    val filename: String,
+    val mimeType: String?,
+    val originUrl: String,
+    val onConfirm: () -> Unit
+)
+
+data class DetectedMediaItem(
+    val url: String,
+    val title: String,
+    val width: Int = 0,
+    val height: Int = 0
+)
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -170,6 +187,32 @@ fun FloatingWebViewContent(
             pendingWebPermissionRequest?.deny()
         }
         pendingWebPermissionRequest = null
+    }
+
+    // Download confirmation prompt state
+    var pendingDownloadPrompt by remember { mutableStateOf<PendingDownloadPrompt?>(null) }
+    var detectedMediaList by remember { mutableStateOf<List<DetectedMediaItem>?>(null) }
+    var isScanningMedia by remember { mutableStateOf(false) }
+
+    val triggerDownloadConfirmation: (String, String?, String?, String?, String?, String?, WebView?) -> Unit = remember(context) {
+        { reqUrl: String, reqUserAgent: String?, reqContentDisposition: String?, reqMimeType: String?, reqSuggestedFilename: String?, reqReferer: String?, reqWebView: WebView? ->
+            downloadFileUniversal(
+                context = context,
+                url = reqUrl,
+                userAgent = reqUserAgent ?: webViewInstance?.settings?.userAgentString,
+                contentDisposition = reqContentDisposition,
+                mimeType = reqMimeType,
+                suggestedFilename = reqSuggestedFilename,
+                referer = reqReferer ?: webViewInstance?.url,
+                webView = reqWebView ?: webViewInstance,
+                skipConfirmation = false,
+                onPromptConfirmation = { prompt ->
+                    (context as? Activity)?.runOnUiThread {
+                        pendingDownloadPrompt = prompt
+                    }
+                }
+            )
+        }
     }
 
     fun normalizeUrl(input: String): String {
@@ -397,21 +440,40 @@ fun FloatingWebViewContent(
                     // Enable JavaScript interface for blob downloads and AI picture extraction
                     webView.addJavascriptInterface(
                         AndroidDownloadBridge(
-                            onBlobReceived = { dataUrl, mimeType, suggestedFilename ->
-                                saveDataUrlToDownloads(ctx, dataUrl, mimeType, suggestedFilename)
+                            onBlobReceived = { dataUrl, mimeType, suggestedFilename, isDirectSave ->
+                                val headerMime = if (dataUrl.startsWith("data:")) {
+                                    dataUrl.substringAfter("data:").substringBefore(';').substringBefore(',').trim()
+                                } else null
+                                val effectiveMime = headerMime?.takeIf { it.isNotBlank() && it != "application/octet-stream" && it != "image/*" }
+                                    ?: mimeType?.takeIf { it.isNotBlank() && it != "application/octet-stream" && it != "image/*" }
+                                    ?: "image/png"
+                                val resolvedName = resolveDownloadFilename("data:$effectiveMime", null, effectiveMime, suggestedFilename)
+                                if (isDirectSave) {
+                                    saveDataUrlToDownloads(ctx, dataUrl, effectiveMime, resolvedName)
+                                } else {
+                                    (ctx as? Activity)?.runOnUiThread {
+                                        pendingDownloadPrompt = PendingDownloadPrompt(
+                                            filename = resolvedName,
+                                            mimeType = effectiveMime,
+                                            originUrl = if (dataUrl.startsWith("data:image")) dataUrl else "Generated Content",
+                                            onConfirm = {
+                                                saveDataUrlToDownloads(ctx, dataUrl, effectiveMime, resolvedName)
+                                            }
+                                        )
+                                    }
+                                }
                             },
                             onInterceptDownload = { url, filename ->
                                 (ctx as? Activity)?.runOnUiThread {
-                                    val clean = url.substringBefore('?').lowercase()
-                                    if (url.startsWith("data:") || url.startsWith("blob:") ||
-                                        clean.endsWith(".png") || clean.endsWith(".jpg") || clean.endsWith(".jpeg") ||
-                                        clean.endsWith(".webp") || clean.endsWith(".gif") || clean.endsWith(".svg") ||
-                                        clean.endsWith(".bmp")
-                                    ) {
-                                        downloadAndSaveImage(ctx, webView, url, filename)
-                                    } else {
-                                        downloadHttpFile(ctx, url, webView.settings.userAgentString, null, null)
-                                    }
+                                    triggerDownloadConfirmation(
+                                        url,
+                                        webView.settings.userAgentString,
+                                        null,
+                                        null,
+                                        filename,
+                                        webView.url,
+                                        webView
+                                    )
                                 }
                             },
                             onImageDetectedAtPoint = { json ->
@@ -420,17 +482,54 @@ fun FloatingWebViewContent(
                                         val obj = JSONObject(json)
                                         val url = obj.getString("url")
                                         val alt = obj.optString("alt", "")
-                                        downloadAndSaveImage(ctx, webView, url, alt)
+                                        triggerDownloadConfirmation(
+                                            url,
+                                            webView.settings.userAgentString,
+                                            null,
+                                            "image/png",
+                                            alt,
+                                            webView.url,
+                                            webView
+                                        )
                                     } catch (e: Exception) {
                                         e.printStackTrace()
                                     }
                                 }
                             },
                             onFallbackHttpDownload = { url, filename ->
-                                coroutineScope.launch {
-                                    val ok = downloadHttpImageOkHttp(ctx, url, webView.settings.userAgentString, webView.url, filename)
-                                    if (!ok) {
-                                        downloadHttpFile(ctx, url, webView.settings.userAgentString, null, "image/*")
+                                (ctx as? Activity)?.runOnUiThread {
+                                    triggerDownloadConfirmation(
+                                        url,
+                                        webView.settings.userAgentString,
+                                        null,
+                                        null,
+                                        filename,
+                                        webView.url,
+                                        webView
+                                    )
+                                }
+                            },
+                            onMediaScanned = { json ->
+                                (ctx as? Activity)?.runOnUiThread {
+                                    isScanningMedia = false
+                                    try {
+                                        val arr = JSONArray(json)
+                                        val list = mutableListOf<DetectedMediaItem>()
+                                        for (i in 0 until arr.length()) {
+                                            val o = arr.getJSONObject(i)
+                                            val u = o.getString("url")
+                                            val t = o.optString("title", "AI Media ${i + 1}")
+                                            val w = o.optInt("width", 0)
+                                            val h = o.optInt("height", 0)
+                                            list.add(DetectedMediaItem(url = u, title = t, width = w, height = h))
+                                        }
+                                        if (list.isNotEmpty()) {
+                                            detectedMediaList = list
+                                        } else {
+                                            Toast.makeText(ctx, "No generated media found on this page", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
                                     }
                                 }
                             }
@@ -441,7 +540,15 @@ fun FloatingWebViewContent(
                     // Download Listener for direct downloads and Content-Disposition headers
                     webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, _ ->
                         if (url.isNullOrBlank()) return@setDownloadListener
-                        downloadAndSaveImage(ctx, webView, url, mimetype = mimetype)
+                        triggerDownloadConfirmation(
+                            url,
+                            userAgent ?: webView.settings.userAgentString,
+                            contentDisposition,
+                            mimetype,
+                            null,
+                            webView.url,
+                            webView
+                        )
                     }
 
                     webView.isFocusable = true
@@ -450,6 +557,7 @@ fun FloatingWebViewContent(
                         if (event.action == android.view.MotionEvent.ACTION_DOWN) {
                             lastTouchX = event.x
                             lastTouchY = event.y
+                            (v as? WebView)?.evaluateJavascript(INJECTED_DOWNLOAD_HOOK, null)
                         }
                         if (!v.hasFocus()) {
                             v.requestFocus()
@@ -476,29 +584,38 @@ fun FloatingWebViewContent(
                             val url = request?.url?.toString() ?: return false
                             if (url.startsWith("http://") || url.startsWith("https://")) {
                                 val cleanUrl = url.substringBefore('?').lowercase()
-                                if (cleanUrl.endsWith(".apk") || cleanUrl.endsWith(".zip") || cleanUrl.endsWith(".pdf") ||
-                                    cleanUrl.endsWith(".rar") || cleanUrl.endsWith(".7z") || cleanUrl.endsWith(".tar.gz") ||
-                                    cleanUrl.endsWith(".iso") || cleanUrl.endsWith(".dmg") || cleanUrl.endsWith(".bin") ||
-                                    cleanUrl.endsWith(".epub") || cleanUrl.endsWith(".csv") || cleanUrl.endsWith(".mp3") ||
-                                    cleanUrl.endsWith(".mp4") || cleanUrl.endsWith(".docx") || cleanUrl.endsWith(".xlsx")
-                                ) {
-                                    downloadHttpFile(ctx, url, view?.settings?.userAgentString, null, null)
-                                    return true
-                                }
-                                if (cleanUrl.endsWith(".png") || cleanUrl.endsWith(".jpg") || cleanUrl.endsWith(".jpeg") ||
-                                    cleanUrl.endsWith(".webp") || cleanUrl.endsWith(".gif") || cleanUrl.endsWith(".svg")
-                                ) {
-                                    downloadAndSaveImage(ctx, webView, url)
+                                val isDownloadable = cleanUrl.endsWith(".apk") || cleanUrl.endsWith(".zip") || cleanUrl.endsWith(".pdf") ||
+                                    cleanUrl.endsWith(".rar") || cleanUrl.endsWith(".7z") || cleanUrl.endsWith(".tar.gz") || cleanUrl.endsWith(".tar") ||
+                                    cleanUrl.endsWith(".iso") || cleanUrl.endsWith(".dmg") || cleanUrl.endsWith(".bin") || cleanUrl.endsWith(".gz") ||
+                                    cleanUrl.endsWith(".epub") || cleanUrl.endsWith(".csv") || cleanUrl.endsWith(".mp3") || cleanUrl.endsWith(".m4a") ||
+                                    cleanUrl.endsWith(".mp4") || cleanUrl.endsWith(".docx") || cleanUrl.endsWith(".xlsx") || cleanUrl.endsWith(".pptx") ||
+                                    cleanUrl.endsWith(".doc") || cleanUrl.endsWith(".xls") || cleanUrl.endsWith(".ppt") || cleanUrl.endsWith(".txt") ||
+                                    cleanUrl.endsWith(".png") || cleanUrl.endsWith(".jpg") || cleanUrl.endsWith(".jpeg") || cleanUrl.endsWith(".webp") ||
+                                    cleanUrl.endsWith(".gif") || cleanUrl.endsWith(".svg") || cleanUrl.endsWith(".bmp") || cleanUrl.endsWith(".json")
+                                if (isDownloadable) {
+                                    triggerDownloadConfirmation(
+                                        url,
+                                        view?.settings?.userAgentString,
+                                        null,
+                                        null,
+                                        null,
+                                        webView.url,
+                                        webView
+                                    )
                                     return true
                                 }
                                 return false
                             }
-                            if (url.startsWith("blob:")) {
-                                downloadAndSaveImage(ctx, webView, url)
-                                return true
-                            }
-                            if (url.startsWith("data:")) {
-                                saveDataUrlToDownloads(ctx, url, null)
+                            if (url.startsWith("blob:") || url.startsWith("data:")) {
+                                triggerDownloadConfirmation(
+                                    url,
+                                    view?.settings?.userAgentString,
+                                    null,
+                                    null,
+                                    null,
+                                    webView.url,
+                                    webView
+                                )
                                 return true
                             }
                             try {
@@ -705,9 +822,19 @@ fun FloatingWebViewContent(
                                         if (targetUrl.startsWith("blob:") || targetUrl.startsWith("data:") ||
                                             clean.endsWith(".png") || clean.endsWith(".jpg") || clean.endsWith(".jpeg") ||
                                             clean.endsWith(".webp") || clean.endsWith(".gif") || clean.endsWith(".svg") ||
-                                            clean.endsWith(".zip") || clean.endsWith(".pdf") || clean.endsWith(".apk")
+                                            clean.endsWith(".bmp") || clean.endsWith(".zip") || clean.endsWith(".pdf") ||
+                                            clean.endsWith(".apk") || clean.endsWith(".rar") || clean.endsWith(".tar") ||
+                                            clean.endsWith(".gz") || clean.endsWith(".csv") || clean.endsWith(".txt")
                                         ) {
-                                            downloadAndSaveImage(ctx, webView, targetUrl)
+                                            triggerDownloadConfirmation(
+                                                targetUrl,
+                                                webView.settings.userAgentString,
+                                                null,
+                                                null,
+                                                null,
+                                                webView.url,
+                                                webView
+                                            )
                                             return true
                                         }
                                         view?.loadUrl(targetUrl)
@@ -722,32 +849,49 @@ fun FloatingWebViewContent(
                     }
 
                     webView.setOnLongClickListener {
+                        (webView as? WebView)?.evaluateJavascript(INJECTED_DOWNLOAD_HOOK, null)
                         val hitResult = webView.hitTestResult
                         val target = hitResult.extra
                         when (hitResult.type) {
                             WebView.HitTestResult.IMAGE_TYPE,
                             WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
                                 if (!target.isNullOrBlank()) {
-                                    Toast.makeText(ctx, "Saving picture to Gallery...", Toast.LENGTH_SHORT).show()
-                                    downloadAndSaveImage(ctx, webView, target)
+                                    triggerDownloadConfirmation(
+                                        target,
+                                        webView.settings.userAgentString,
+                                        null,
+                                        "image/*",
+                                        null,
+                                        webView.url,
+                                        webView
+                                    )
                                     true
                                 } else false
                             }
                             WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
                                 if (!target.isNullOrBlank()) {
                                     val cleanTarget = target.substringBefore('?').lowercase()
-                                    if (cleanTarget.endsWith(".apk") || cleanTarget.endsWith(".zip") || cleanTarget.endsWith(".pdf") ||
+                                    val isDownloadable = cleanTarget.endsWith(".apk") || cleanTarget.endsWith(".zip") || cleanTarget.endsWith(".pdf") ||
                                         cleanTarget.endsWith(".rar") || cleanTarget.endsWith(".7z") || cleanTarget.endsWith(".tar.gz") ||
-                                        cleanTarget.endsWith(".iso") || cleanTarget.endsWith(".dmg") || cleanTarget.endsWith(".bin") ||
-                                        cleanTarget.endsWith(".epub") || cleanTarget.endsWith(".csv") || cleanTarget.endsWith(".mp3") ||
-                                        cleanTarget.endsWith(".mp4") || cleanTarget.endsWith(".docx") || cleanTarget.endsWith(".xlsx")
-                                    ) {
-                                        downloadHttpFile(ctx, target, webView.settings.userAgentString, null, null)
-                                    } else if (cleanTarget.endsWith(".png") || cleanTarget.endsWith(".jpg") || cleanTarget.endsWith(".jpeg") ||
-                                        cleanTarget.endsWith(".webp") || cleanTarget.endsWith(".gif") || cleanTarget.endsWith(".svg")
-                                    ) {
-                                        Toast.makeText(ctx, "Saving picture to Gallery...", Toast.LENGTH_SHORT).show()
-                                        downloadAndSaveImage(ctx, webView, target)
+                                        cleanTarget.endsWith(".tar") || cleanTarget.endsWith(".iso") || cleanTarget.endsWith(".dmg") ||
+                                        cleanTarget.endsWith(".bin") || cleanTarget.endsWith(".epub") || cleanTarget.endsWith(".csv") ||
+                                        cleanTarget.endsWith(".mp3") || cleanTarget.endsWith(".m4a") || cleanTarget.endsWith(".mp4") ||
+                                        cleanTarget.endsWith(".docx") || cleanTarget.endsWith(".xlsx") || cleanTarget.endsWith(".pptx") ||
+                                        cleanTarget.endsWith(".doc") || cleanTarget.endsWith(".xls") || cleanTarget.endsWith(".ppt") ||
+                                        cleanTarget.endsWith(".txt") || cleanTarget.endsWith(".png") || cleanTarget.endsWith(".jpg") ||
+                                        cleanTarget.endsWith(".jpeg") || cleanTarget.endsWith(".webp") || cleanTarget.endsWith(".gif") ||
+                                        cleanTarget.endsWith(".svg") || cleanTarget.endsWith(".bmp") || cleanTarget.endsWith(".json")
+
+                                    if (isDownloadable) {
+                                        triggerDownloadConfirmation(
+                                            target,
+                                            webView.settings.userAgentString,
+                                            null,
+                                            null,
+                                            null,
+                                            webView.url,
+                                            webView
+                                        )
                                     } else {
                                         openExternally(target)
                                     }
@@ -761,43 +905,57 @@ fun FloatingWebViewContent(
                                 val cssY = (lastTouchY / density).toInt()
                                 val js = """
                                     (function(x, y) {
-                                        function findNode(n) {
-                                            if (!n) return null;
-                                            if (n.tagName === 'IMG' && (n.currentSrc || n.src)) {
-                                                return { url: n.currentSrc || n.src, width: n.naturalWidth || 0, height: n.naturalHeight || 0, alt: n.alt || 'AI Picture', type: 'img' };
-                                            }
-                                            if (n.tagName === 'CANVAS') {
-                                                try {
-                                                    return { url: n.toDataURL('image/png'), width: n.width || 0, height: n.height || 0, alt: 'Canvas Picture', type: 'canvas' };
-                                                } catch(e) {}
-                                            }
-                                            var img = n.querySelector && n.querySelector('img');
-                                            if (img && (img.currentSrc || img.src)) {
-                                                return { url: img.currentSrc || img.src, width: img.naturalWidth || 0, height: img.naturalHeight || 0, alt: img.alt || 'AI Picture', type: 'img' };
-                                            }
-                                            var cv = n.querySelector && n.querySelector('canvas');
-                                            if (cv) {
-                                                try {
-                                                    return { url: cv.toDataURL('image/png'), width: cv.width || 0, height: cv.height || 0, alt: 'Canvas Picture', type: 'canvas' };
-                                                } catch(e) {}
-                                            }
-                                            var p = n.parentElement;
-                                            for (var i = 0; i < 5 && p; i++) {
-                                                if (p.tagName === 'IMG' && (p.currentSrc || p.src)) {
-                                                    return { url: p.currentSrc || p.src, width: p.naturalWidth || 0, height: p.naturalHeight || 0, alt: p.alt || 'AI Picture', type: 'img' };
-                                                }
-                                                var pImg = p.querySelector && p.querySelector('img');
-                                                if (pImg && (pImg.currentSrc || pImg.src)) {
-                                                    return { url: pImg.currentSrc || pImg.src, width: pImg.naturalWidth || 0, height: pImg.naturalHeight || 0, alt: pImg.alt || 'AI Picture', type: 'img' };
-                                                }
-                                                p = p.parentElement;
-                                            }
-                                            return null;
+                                        function getCleanUrl(u) {
+                                            if (!u) return null;
+                                            var match = u.match(/url\(['"]?(.*?)['"]?\)/);
+                                            return match ? match[1] : u;
                                         }
-                                        var el = document.elementFromPoint(x, y);
-                                        var item = findNode(el);
-                                        if (item && window.AndroidDownloadBridge) {
-                                            window.AndroidDownloadBridge.onImageDetectedAtPoint(JSON.stringify(item));
+                                        var elements = document.elementsFromPoint ? document.elementsFromPoint(x, y) : [document.elementFromPoint(x, y)];
+                                        for (var i = 0; i < elements.length; i++) {
+                                            var el = elements[i];
+                                            if (!el) continue;
+                                            if (el.tagName === 'IMG' && (el.currentSrc || el.src)) {
+                                                var src = el.currentSrc || el.src;
+                                                if (src && !src.startsWith('data:image/svg') && src !== 'about:blank') {
+                                                    window.AndroidDownloadBridge.onImageDetectedAtPoint(JSON.stringify({ url: src, alt: el.alt || 'AI Picture' }));
+                                                    return;
+                                                }
+                                            }
+                                            if (el.tagName === 'CANVAS') {
+                                                try {
+                                                    var cvData = el.toDataURL('image/png');
+                                                    if (cvData && cvData.length > 200) {
+                                                        window.AndroidDownloadBridge.onImageDetectedAtPoint(JSON.stringify({ url: cvData, alt: 'AI Canvas' }));
+                                                        return;
+                                                    }
+                                                } catch(e) {}
+                                            }
+                                            try {
+                                                var bg = window.getComputedStyle(el).backgroundImage;
+                                                if (bg && bg !== 'none') {
+                                                    var bgUrl = getCleanUrl(bg);
+                                                    if (bgUrl && (bgUrl.startsWith('http') || bgUrl.startsWith('blob:') || bgUrl.startsWith('data:'))) {
+                                                        window.AndroidDownloadBridge.onImageDetectedAtPoint(JSON.stringify({ url: bgUrl, alt: 'AI Background Image' }));
+                                                        return;
+                                                    }
+                                                }
+                                            } catch(e) {}
+                                            var nestedImg = el.querySelector && el.querySelector('img');
+                                            if (nestedImg && (nestedImg.currentSrc || nestedImg.src)) {
+                                                var nSrc = nestedImg.currentSrc || nestedImg.src;
+                                                window.AndroidDownloadBridge.onImageDetectedAtPoint(JSON.stringify({ url: nSrc, alt: nestedImg.alt || 'AI Picture' }));
+                                                return;
+                                            }
+                                            var nestedCv = el.querySelector && el.querySelector('canvas');
+                                            if (nestedCv) {
+                                                try {
+                                                    var nCvData = nestedCv.toDataURL('image/png');
+                                                    if (nCvData && nCvData.length > 200) {
+                                                        window.AndroidDownloadBridge.onImageDetectedAtPoint(JSON.stringify({ url: nCvData, alt: 'AI Canvas' }));
+                                                        return;
+                                                    }
+                                                } catch(e) {}
+                                            }
                                         }
                                     })($cssX, $cssY);
                                 """.trimIndent()
@@ -1132,26 +1290,96 @@ fun FloatingWebViewContent(
                     )
                 }
 
-                // Downloads Folder Quick View
+                // Downloads / Save Current Media Quick Action
                 IconButton(
                     onClick = {
-                        try {
-                            val intent = Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Downloads saved in Downloads folder", Toast.LENGTH_SHORT).show()
+                        val clean = currentUrl.substringBefore('?').lowercase()
+                        val isDirectFile = clean.endsWith(".pdf") || clean.endsWith(".apk") || clean.endsWith(".zip") ||
+                            clean.endsWith(".png") || clean.endsWith(".jpg") || clean.endsWith(".jpeg") ||
+                            clean.endsWith(".webp") || clean.endsWith(".gif") || clean.endsWith(".svg") ||
+                            clean.endsWith(".csv") || clean.endsWith(".docx") || clean.endsWith(".xlsx") ||
+                            currentUrl.startsWith("blob:") || currentUrl.startsWith("data:")
+
+                        if (isDirectFile && currentUrl.isNotBlank() && currentUrl != "about:blank") {
+                            triggerDownloadConfirmation(
+                                currentUrl,
+                                webViewInstance?.settings?.userAgentString,
+                                null,
+                                null,
+                                null,
+                                currentUrl,
+                                webViewInstance
+                            )
+                        } else {
+                            // Scan page for AI generated images and media
+                            isScanningMedia = true
+                            val scanScript = """
+                                (function() {
+                                    var list = [];
+                                    var seen = {};
+                                    function add(u, t, w, h) {
+                                        if (!u || seen[u]) return;
+                                        if (u.startsWith('data:image/svg') || u.indexOf('favicon') !== -1 || u.indexOf('tracking') !== -1 || u.indexOf('analytics') !== -1) return;
+                                        seen[u] = true;
+                                        list.push({ url: u, title: t || 'AI Image', width: w || 0, height: h || 0 });
+                                    }
+                                    var cvs = document.querySelectorAll('canvas');
+                                    for (var i = 0; i < cvs.length; i++) {
+                                        var c = cvs[i];
+                                        if (c.width >= 80 && c.height >= 80) {
+                                            try {
+                                                var d = c.toDataURL('image/png');
+                                                if (d && d.length > 200) add(d, 'AI Canvas ' + (i + 1), c.width, c.height);
+                                            } catch(e) {}
+                                        }
+                                    }
+                                    var imgs = document.querySelectorAll('img');
+                                    for (var j = 0; j < imgs.length; j++) {
+                                        var im = imgs[j];
+                                        var s = im.currentSrc || im.src;
+                                        var w = im.naturalWidth || im.width || 0;
+                                        var h = im.naturalHeight || im.height || 0;
+                                        if ((w >= 80 && h >= 80) || (s && (s.startsWith('blob:') || s.startsWith('data:image') || s.indexOf('generation') !== -1 || s.indexOf('blob.core.windows.net') !== -1 || s.indexOf('output') !== -1 || s.indexOf('cdn') !== -1))) {
+                                            add(s, im.alt || ('AI Image ' + (j + 1)), w, h);
+                                        }
+                                    }
+                                    var bgEls = document.querySelectorAll('div, section, article, a, [role="img"]');
+                                    for (var k = 0; k < bgEls.length && list.length < 30; k++) {
+                                        var b = window.getComputedStyle(bgEls[k]).backgroundImage;
+                                        if (b && b !== 'none') {
+                                            var m = b.match(/url\(['"]?(.*?)['"]?\)/);
+                                            if (m && m[1] && (m[1].startsWith('http') || m[1].startsWith('blob:') || m[1].startsWith('data:'))) {
+                                                add(m[1], 'Generated Media', bgEls[k].clientWidth || 0, bgEls[k].clientHeight || 0);
+                                            }
+                                        }
+                                    }
+                                    list.sort(function(a, b) {
+                                        return (b.width * b.height) - (a.width * a.height);
+                                    });
+                                    if (window.AndroidDownloadBridge && window.AndroidDownloadBridge.onMediaScanned) {
+                                        window.AndroidDownloadBridge.onMediaScanned(JSON.stringify(list.slice(0, 30)));
+                                    }
+                                })();
+                            """.trimIndent()
+                            webViewInstance?.evaluateJavascript(scanScript, null)
                         }
                     },
                     modifier = Modifier.size(28.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Download,
-                        contentDescription = "Downloads Folder",
-                        tint = accentColor,
-                        modifier = Modifier.size(15.dp)
-                    )
+                    if (isScanningMedia) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(15.dp),
+                            strokeWidth = 2.dp,
+                            color = accentColor
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Downloads & Media Capture",
+                            tint = accentColor,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
                 }
 
                 // Open in External Default Browser Button
@@ -1168,6 +1396,45 @@ fun FloatingWebViewContent(
                 }
             }
         }
+    }
+
+    // Confirmation dialog before downloading any file or media
+    pendingDownloadPrompt?.let { prompt ->
+        DownloadConfirmationDialog(
+            prompt = prompt,
+            accentColor = accentColor,
+            onDismiss = { pendingDownloadPrompt = null }
+        )
+    }
+
+    // Page Media Picker Sheet (for AI generated pictures and media scanned from the page)
+    detectedMediaList?.let { mediaList ->
+        PageMediaPickerSheet(
+            mediaList = mediaList,
+            accentColor = accentColor,
+            onSelect = { item ->
+                triggerDownloadConfirmation(
+                    item.url,
+                    webViewInstance?.settings?.userAgentString,
+                    null,
+                    "image/png",
+                    item.title,
+                    webViewInstance?.url,
+                    webViewInstance
+                )
+            },
+            onOpenDownloads = {
+                try {
+                    val intent = Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Downloads saved in Downloads folder", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDismiss = { detectedMediaList = null }
+        )
     }
 
     // State Preservation on Composable disposal (Keep history and state alive!)
@@ -1188,15 +1455,350 @@ fun FloatingWebViewContent(
     }
 }
 
+@Composable
+fun DownloadConfirmationDialog(
+    prompt: PendingDownloadPrompt,
+    accentColor: Color,
+    onDismiss: () -> Unit
+) {
+    val isImg = prompt.originUrl.startsWith("data:image") ||
+        prompt.mimeType?.startsWith("image/") == true ||
+        prompt.filename.endsWith(".png", true) || prompt.filename.endsWith(".jpg", true) ||
+        prompt.filename.endsWith(".jpeg", true) || prompt.filename.endsWith(".webp", true) ||
+        prompt.filename.endsWith(".gif", true)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(
+                onClick = {
+                    prompt.onConfirm()
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Download,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = Color.White
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Download", color = Color.White, fontWeight = FontWeight.SemiBold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
+            ) {
+                Text("Cancel", color = Color.White.copy(alpha = 0.8f))
+            }
+        },
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(accentColor.copy(alpha = 0.15f))
+                    .border(1.dp, accentColor.copy(alpha = 0.35f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Download,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        },
+        title = {
+            Text(
+                text = "Download file?",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White.copy(alpha = 0.05f))
+                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                    .padding(12.dp)
+            ) {
+                if (isImg && (prompt.originUrl.startsWith("http") || prompt.originUrl.startsWith("data:image"))) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(130.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black.copy(alpha = 0.4f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AsyncImage(
+                            model = prompt.originUrl,
+                            contentDescription = prompt.filename,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+
+                Text(
+                    text = prompt.filename,
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                val domain = try {
+                    if (prompt.originUrl.startsWith("http")) {
+                        Uri.parse(prompt.originUrl).host ?: "Web Download"
+                    } else if (prompt.originUrl.startsWith("blob:")) {
+                        "Generated AI Blob"
+                    } else if (prompt.originUrl.startsWith("data:")) {
+                        "Generated AI Canvas / Image"
+                    } else {
+                        "Web Download"
+                    }
+                } catch (e: Exception) {
+                    "Web Download"
+                }
+                val ext = prompt.filename.substringAfterLast('.', "").uppercase()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (ext.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(accentColor.copy(alpha = 0.2f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = ext,
+                                color = accentColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    Text(
+                        text = domain,
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        },
+        containerColor = Color(0xFF1B1F2A),
+        shape = RoundedCornerShape(22.dp)
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PageMediaPickerSheet(
+    mediaList: List<DetectedMediaItem>,
+    accentColor: Color,
+    onSelect: (DetectedMediaItem) -> Unit,
+    onOpenDownloads: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF1B1F2A),
+        contentColor = Color.White,
+        tonalElevation = 8.dp,
+        dragHandle = {
+            BottomSheetDefaults.DragHandle(color = Color.White.copy(alpha = 0.4f))
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 28.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Page Media & AI Pictures",
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${mediaList.size} items detected on this page",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 12.sp
+                    )
+                }
+                TextButton(onClick = {
+                    onDismiss()
+                    onOpenDownloads()
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Downloads", color = accentColor, fontSize = 12.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 380.dp)
+            ) {
+                items(mediaList) { item ->
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onSelect(item)
+                                onDismiss()
+                            }
+                    ) {
+                        Column(modifier = Modifier.padding(6.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(110.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.Black.copy(alpha = 0.3f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AsyncImage(
+                                    model = item.url,
+                                    contentDescription = item.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                if (item.width > 0 && item.height > 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .padding(4.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Color.Black.copy(alpha = 0.75f))
+                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = "${item.width}×${item.height}",
+                                            color = Color.White,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = item.title,
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(accentColor.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = "Download",
+                                        tint = accentColor,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 class AndroidDownloadBridge(
-    private val onBlobReceived: (String, String, String) -> Unit,
+    private val onBlobReceived: (String, String, String, Boolean) -> Unit,
     private val onInterceptDownload: (String, String) -> Unit,
     private val onImageDetectedAtPoint: (String) -> Unit,
-    private val onFallbackHttpDownload: (String, String) -> Unit
+    private val onFallbackHttpDownload: (String, String) -> Unit,
+    private val onMediaScanned: (String) -> Unit
 ) {
+    private val chunkBuffers = java.util.concurrent.ConcurrentHashMap<String, StringBuilder>()
+    private val chunkMetadata = java.util.concurrent.ConcurrentHashMap<String, Triple<String, String, Boolean>>()
+
+    @JavascriptInterface
+    fun onChunkStart(transferId: String, totalLength: Int, mimeType: String, suggestedFilename: String, directSave: Boolean) {
+        chunkBuffers[transferId] = StringBuilder(totalLength.coerceAtLeast(1024))
+        chunkMetadata[transferId] = Triple(mimeType, suggestedFilename, directSave)
+    }
+
+    @JavascriptInterface
+    fun onChunkPart(transferId: String, chunk: String) {
+        chunkBuffers[transferId]?.append(chunk)
+    }
+
+    @JavascriptInterface
+    fun onChunkEnd(transferId: String) {
+        val buffer = chunkBuffers.remove(transferId)?.toString() ?: return
+        val meta = chunkMetadata.remove(transferId)
+        val mime = meta?.first ?: ""
+        val filename = meta?.second ?: ""
+        val direct = meta?.third ?: false
+        onBlobReceived(buffer, mime, filename, direct)
+    }
+
     @JavascriptInterface
     fun onBlobData(dataUrl: String, mimeType: String, suggestedFilename: String) {
-        onBlobReceived(dataUrl, mimeType, suggestedFilename)
+        onBlobReceived(dataUrl, mimeType, suggestedFilename, false)
+    }
+
+    @JavascriptInterface
+    fun onBlobDataDirectSave(dataUrl: String, mimeType: String, suggestedFilename: String) {
+        onBlobReceived(dataUrl, mimeType, suggestedFilename, true)
     }
 
     @JavascriptInterface
@@ -1218,6 +1820,11 @@ class AndroidDownloadBridge(
     fun onFallbackHttpDownload(url: String, filename: String) {
         onFallbackHttpDownload(url, filename)
     }
+
+    @JavascriptInterface
+    fun onMediaScanned(json: String) {
+        onMediaScanned(json)
+    }
 }
 
 const val INJECTED_DOWNLOAD_HOOK = """
@@ -1225,76 +1832,259 @@ const val INJECTED_DOWNLOAD_HOOK = """
     if (window.__orbit_download_hooked) return;
     window.__orbit_download_hooked = true;
 
-    // Prevent immediate revocation of blob URLs so async reader can process them
-    var origRevoke = URL.revokeObjectURL;
-    URL.revokeObjectURL = function(url) {
-        setTimeout(function() {
-            try { origRevoke(url); } catch(e) {}
-        }, 60000);
-    };
+    // In-memory Blob registry to instantly retrieve Blobs created by ChatGPT, Claude, Gemini, Poe, DeepSeek, etc.
+    var blobStore = new Map();
+    window.__orbitBlobStore = blobStore;
 
-    function triggerNativeDownload(href, filename) {
+    // 1. Hook URL.createObjectURL
+    if (window.URL && window.URL.createObjectURL) {
+        var origCreate = window.URL.createObjectURL;
+        window.URL.createObjectURL = function(blob) {
+            var u = origCreate.apply(this, arguments);
+            try {
+                if (blob) {
+                    blobStore.set(u, blob);
+                }
+            } catch(e) {}
+            return u;
+        };
+    }
+
+    // 2. Prevent immediate revocation of blob URLs so async processing can complete
+    if (window.URL && window.URL.revokeObjectURL) {
+        var origRevoke = window.URL.revokeObjectURL;
+        window.URL.revokeObjectURL = function(url) {
+            setTimeout(function() {
+                try { origRevoke.call(window.URL, url); } catch(e) {}
+                try { blobStore.delete(url); } catch(e) {}
+            }, 120000);
+        };
+    }
+
+    function sendPayload(dataUrl, mime, filename, directSave) {
+        if (!dataUrl || !window.AndroidDownloadBridge) return;
+        var CHUNK_SIZE = 400000;
+        if (dataUrl.length > CHUNK_SIZE && window.AndroidDownloadBridge.onChunkStart) {
+            var tid = 'tid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+            window.AndroidDownloadBridge.onChunkStart(tid, dataUrl.length, mime || '', filename || '', !!directSave);
+            for (var offset = 0; offset < dataUrl.length; offset += CHUNK_SIZE) {
+                var chunk = dataUrl.substring(offset, offset + CHUNK_SIZE);
+                window.AndroidDownloadBridge.onChunkPart(tid, chunk);
+            }
+            window.AndroidDownloadBridge.onChunkEnd(tid);
+        } else {
+            if (directSave && window.AndroidDownloadBridge.onBlobDataDirectSave) {
+                window.AndroidDownloadBridge.onBlobDataDirectSave(dataUrl, mime || '', filename || '');
+            } else {
+                window.AndroidDownloadBridge.onBlobData(dataUrl, mime || '', filename || '');
+            }
+        }
+    }
+
+    function convertBlobToBase64(blob, mimeHint, filename, directSave) {
+        var reader = new FileReader();
+        reader.onloadend = function() {
+            if (reader.result) {
+                var actualMime = mimeHint || blob.type || 'image/png';
+                sendPayload(reader.result, actualMime, filename || '', directSave);
+            }
+        };
+        reader.readAsDataURL(blob);
+    }
+
+    function triggerNativeDownload(href, filename, directSave) {
         if (!href || !window.AndroidDownloadBridge) return;
-        if (href.startsWith('data:')) {
-            window.AndroidDownloadBridge.onBlobData(href, '', filename || '');
+
+        // A. Data URLs
+        if (href.indexOf('data:') === 0) {
+            var dataMime = '';
+            var m = href.match(/^data:([^;,]+)/);
+            if (m && m[1]) dataMime = m[1];
+            sendPayload(href, dataMime, filename || '', directSave);
             return;
         }
-        if (href.startsWith('blob:')) {
+
+        // B. Blob URLs
+        if (href.indexOf('blob:') === 0) {
+            if (blobStore.has(href)) {
+                var storedBlob = blobStore.get(href);
+                convertBlobToBase64(storedBlob, storedBlob.type, filename, directSave);
+                return;
+            }
+
             fetch(href)
-                .then(function(res) { return res.blob(); })
-                .then(function(blob) {
-                    var reader = new FileReader();
-                    reader.onloadend = function() {
-                        if (window.AndroidDownloadBridge) {
-                            window.AndroidDownloadBridge.onBlobData(reader.result, blob.type || 'application/octet-stream', filename || '');
-                        }
-                    };
-                    reader.readAsDataURL(blob);
+                .then(function(res) {
+                    var ct = (res.headers && res.headers.get('Content-Type')) || '';
+                    return res.blob().then(function(b) {
+                        return { blob: b, type: ct || b.type || '' };
+                    });
+                })
+                .then(function(info) {
+                    convertBlobToBase64(info.blob, info.type, filename, directSave);
                 })
                 .catch(function() {
-                    if (window.AndroidDownloadBridge) {
+                    try {
+                        var xhr = new XMLHttpRequest();
+                        xhr.open('GET', href, true);
+                        xhr.responseType = 'blob';
+                        xhr.onload = function() {
+                            if (xhr.response) {
+                                convertBlobToBase64(xhr.response, xhr.response.type || '', filename, directSave);
+                            } else {
+                                window.AndroidDownloadBridge.onInterceptDownload(href, filename || '');
+                            }
+                        };
+                        xhr.onerror = function() {
+                            window.AndroidDownloadBridge.onInterceptDownload(href, filename || '');
+                        };
+                        xhr.send();
+                    } catch(e) {
                         window.AndroidDownloadBridge.onInterceptDownload(href, filename || '');
                     }
                 });
             return;
         }
+
+        // C. HTTP/HTTPS or other URLs
         window.AndroidDownloadBridge.onInterceptDownload(href, filename || '');
     }
 
-    // Helper: Find image or canvas in or near element
-    function extractMediaFromElement(el) {
-        if (!el) return null;
-        if (el.tagName === 'IMG' && (el.currentSrc || el.src)) {
-            return { url: el.currentSrc || el.src, name: el.alt || 'image' };
-        }
-        if (el.tagName === 'CANVAS') {
+    function extractMediaFromElement(container) {
+        if (!container) return null;
+
+        // Check canvases
+        if (container.tagName === 'CANVAS') {
             try {
-                return { url: el.toDataURL('image/png'), name: 'canvas_image' };
+                var d = container.toDataURL('image/png');
+                if (d && d.length > 200) return { url: d, name: 'orbit_canvas.png' };
             } catch(e) {}
         }
-        var img = el.querySelector && el.querySelector('img');
-        if (img && (img.currentSrc || img.src)) {
-            return { url: img.currentSrc || img.src, name: img.alt || 'image' };
+        var canvases = container.querySelectorAll ? container.querySelectorAll('canvas') : [];
+        for (var c = 0; c < canvases.length; c++) {
+            var cv = canvases[c];
+            if (cv && cv.width > 60 && cv.height > 60) {
+                try {
+                    var cd = cv.toDataURL('image/png');
+                    if (cd && cd.length > 200) return { url: cd, name: 'orbit_canvas.png' };
+                } catch(e) {}
+            }
         }
-        var cv = el.querySelector && el.querySelector('canvas');
-        if (cv) {
+
+        // Check images: pick the largest image in the container
+        var images = [];
+        if (container.tagName === 'IMG') images.push(container);
+        if (container.querySelectorAll) {
+            var foundImgs = container.querySelectorAll('img');
+            for (var j = 0; j < foundImgs.length; j++) images.push(foundImgs[j]);
+        }
+        var bestImg = null;
+        var maxArea = 0;
+        for (var k = 0; k < images.length; k++) {
+            var img = images[k];
+            var s = img.currentSrc || img.src || img.getAttribute('data-src') || img.getAttribute('src');
+            if (!s || s.indexOf('data:image/svg') === 0 || s === 'about:blank') continue;
+            var w = img.naturalWidth || img.width || img.offsetWidth || 0;
+            var h = img.naturalHeight || img.height || img.offsetHeight || 0;
+            if (w > 0 && h > 0 && (w < 40 || h < 40)) continue;
+            var area = (w > 0 && h > 0) ? (w * h) : 500;
+            if (area > maxArea) {
+                maxArea = area;
+                bestImg = { url: s, name: (img.alt || 'orbit_image').replace(/[^a-zA-Z0-9_\u0600-\u06FF\s-]/g, '_') };
+            }
+        }
+        if (bestImg) return bestImg;
+
+        // Check background-image
+        var all = container.querySelectorAll ? container.querySelectorAll('*') : [];
+        for (var b = 0; b < all.length; b++) {
+            var node = all[b];
             try {
-                return { url: cv.toDataURL('image/png'), name: 'canvas_image' };
+                var bg = window.getComputedStyle(node).backgroundImage;
+                if (bg && bg !== 'none' && bg.indexOf('url(') !== -1) {
+                    var m = bg.match(/url\(['"]?(.*?)['"]?\)/);
+                    if (m && m[1] && (m[1].indexOf('http') === 0 || m[1].indexOf('blob:') === 0 || m[1].indexOf('data:') === 0)) {
+                        if (m[1].indexOf('data:image/svg') !== 0) {
+                            return { url: m[1], name: 'orbit_image' };
+                        }
+                    }
+                }
             } catch(e) {}
         }
         return null;
     }
 
-    // 1. Intercept programmatic anchor click (used by ChatGPT, Claude, Midjourney, etc.)
+    function findMediaForButton(btn) {
+        if (!btn) return null;
+
+        // 1. Direct parent link
+        var parentLink = btn.closest('a');
+        if (parentLink && parentLink.href) {
+            var ph = parentLink.href;
+            if (ph.indexOf('#') !== 0 && ph.indexOf('javascript:') !== 0) {
+                return { url: ph, name: parentLink.getAttribute('download') || parentLink.download || 'image' };
+            }
+        }
+
+        // 2. Inside modal, lightbox or preview dialog
+        var modal = btn.closest('[role="dialog"], .modal, .lightbox, .fullscreen-preview, [data-testid*="modal"], [aria-modal="true"]');
+        if (modal) {
+            var mm = extractMediaFromElement(modal);
+            if (mm) return mm;
+        }
+
+        // 3. Message container / Conversation turn (ChatGPT, Claude, Gemini, Poe, DeepSeek)
+        var messageContainer = btn.closest('article, [data-message-author-role], [data-testid*="conversation"], .message, [class*="message"], .group, .card, [class*="generation"]');
+        if (messageContainer) {
+            var mcMedia = extractMediaFromElement(messageContainer);
+            if (mcMedia) return mcMedia;
+        }
+
+        // 4. Traverse parent hierarchy up to 6 levels
+        var curr = btn.parentElement;
+        for (var depth = 0; depth < 6 && curr && curr !== document.body && curr !== document.documentElement; depth++) {
+            var pMedia = extractMediaFromElement(curr);
+            if (pMedia) return pMedia;
+            curr = curr.parentElement;
+        }
+
+        // 5. Nearest visible image on screen
+        try {
+            var btnRect = btn.getBoundingClientRect();
+            var allImages = document.querySelectorAll('img, canvas');
+            var closestMedia = null;
+            var closestDist = 999999;
+            for (var i = 0; i < allImages.length; i++) {
+                var mediaEl = allImages[i];
+                var r = mediaEl.getBoundingClientRect();
+                if (r.width > 60 && r.height > 60) {
+                    var dist = Math.hypot((r.left + r.width/2) - (btnRect.left + btnRect.width/2), (r.top + r.height/2) - (btnRect.top + btnRect.height/2));
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestMedia = mediaEl;
+                    }
+                }
+            }
+            if (closestMedia && closestDist < 900) {
+                var nearMedia = extractMediaFromElement(closestMedia);
+                if (nearMedia) return nearMedia;
+            }
+        } catch(e) {}
+
+        return null;
+    }
+
+    // 3. Intercept programmatic anchor clicks
     var origClick = HTMLAnchorElement.prototype.click;
     HTMLAnchorElement.prototype.click = function() {
         try {
             var href = this.href || this.getAttribute('href');
-            var download = this.download || this.getAttribute('download');
-            var isBlobOrData = href && (href.startsWith('blob:') || href.startsWith('data:'));
-            var isMediaExt = href && /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|tar|gz|mp3|mp4|csv|txt|json)(\?.*)?$/i.test(href);
-            if (isBlobOrData || (download !== null && download !== undefined) || isMediaExt) {
-                if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+            var download = this.getAttribute('download') || this.download;
+            var hasDownload = this.hasAttribute('download') || (download !== null && download !== undefined && download !== '');
+            var isBlobOrData = href && (href.indexOf('blob:') === 0 || href.indexOf('data:') === 0);
+            var isMediaExt = href && /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|tar|gz|mp3|mp4|m4a|wav|csv|txt|json|py|js|ts|html|css|md|java|c|cpp|sh|docx|xlsx|pptx)(\?.*)?${'$'}/i.test(href);
+
+            if (isBlobOrData || hasDownload || isMediaExt) {
+                if (href && href.indexOf('#') !== 0 && href.indexOf('javascript:') !== 0) {
                     triggerNativeDownload(href, download || '');
                     return;
                 }
@@ -1303,17 +2093,19 @@ const val INJECTED_DOWNLOAD_HOOK = """
         return origClick.apply(this, arguments);
     };
 
-    // 2. Intercept dispatchEvent on anchor (used by React/Vue in modern AI chats)
+    // 4. Intercept dispatchEvent for anchor clicks
     var origDispatch = EventTarget.prototype.dispatchEvent;
     EventTarget.prototype.dispatchEvent = function(event) {
         try {
             if (this instanceof HTMLAnchorElement && event && event.type === 'click') {
                 var href = this.href || this.getAttribute('href');
-                var download = this.download || this.getAttribute('download');
-                var isBlobOrData = href && (href.startsWith('blob:') || href.startsWith('data:'));
-                var isMediaExt = href && /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|tar|gz|mp3|mp4|csv|txt|json)(\?.*)?$/i.test(href);
-                if (isBlobOrData || (download !== null && download !== undefined) || isMediaExt) {
-                    if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+                var download = this.getAttribute('download') || this.download;
+                var hasDownload = this.hasAttribute('download') || (download !== null && download !== undefined && download !== '');
+                var isBlobOrData = href && (href.indexOf('blob:') === 0 || href.indexOf('data:') === 0);
+                var isMediaExt = href && /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|tar|gz|mp3|mp4|m4a|wav|csv|txt|json|py|js|ts|html|css|md|java|c|cpp|sh|docx|xlsx|pptx)(\?.*)?${'$'}/i.test(href);
+
+                if (isBlobOrData || hasDownload || isMediaExt) {
+                    if (href && href.indexOf('#') !== 0 && href.indexOf('javascript:') !== 0) {
                         triggerNativeDownload(href, download || '');
                         return false;
                     }
@@ -1323,42 +2115,51 @@ const val INJECTED_DOWNLOAD_HOOK = """
         return origDispatch.apply(this, arguments);
     };
 
-    // 3. Intercept user clicks on download links, download buttons, and image download triggers
+    // 5. Intercept user clicks on download buttons and chat controls (English & Arabic)
     document.addEventListener('click', function(e) {
         try {
             var el = e.target;
             while (el && el !== document.body && el !== document.documentElement) {
                 var href = el.href || (el.getAttribute && el.getAttribute('href'));
-                var download = el.hasAttribute && el.getAttribute('download');
-                var isBlobOrData = href && (href.startsWith('blob:') || href.startsWith('data:'));
-                var isMediaExt = href && /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|tar|gz|mp3|mp4|csv|txt|json)(\?.*)?$/i.test(href);
-                
-                if (isBlobOrData || (download !== null && href && !href.startsWith('#') && !href.startsWith('javascript:')) || isMediaExt) {
+                var download = el.getAttribute && el.getAttribute('download');
+                var hasDownloadAttr = el.hasAttribute && el.hasAttribute('download');
+                var isBlobOrData = href && (href.indexOf('blob:') === 0 || href.indexOf('data:') === 0);
+                var isMediaExt = href && /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|tar|gz|mp3|mp4|m4a|wav|csv|txt|json|py|js|ts|html|css|md|java|c|cpp|sh|docx|xlsx|pptx)(\?.*)?${'$'}/i.test(href);
+
+                if (isBlobOrData || (hasDownloadAttr && href && href.indexOf('#') !== 0 && href.indexOf('javascript:') !== 0) || isMediaExt) {
                     triggerNativeDownload(href, download || '');
                     e.preventDefault();
                     e.stopPropagation();
                     return;
                 }
 
-                // Check for download buttons in AI chat interfaces (ChatGPT, Claude, Poe, Leonardo, Midjourney web)
                 var ariaLabel = (el.getAttribute && (el.getAttribute('aria-label') || el.getAttribute('title') || '')) || '';
                 var testId = (el.getAttribute && el.getAttribute('data-testid') || '') || '';
                 var className = (typeof el.className === 'string' ? el.className : '') || '';
-                var isDownloadBtn = /download|save image|save picture|export/i.test(ariaLabel) ||
-                                    /download|save/i.test(testId) ||
-                                    /download-btn|download-button|btn-download/i.test(className);
+                var textContent = (el.innerText || el.textContent || '').trim().toLowerCase();
 
-                if (isDownloadBtn) {
-                    // Search for associated image in neighboring containers or parent card
-                    var searchContainer = el.closest('[data-message-author-role], .message, .group, article, .card, [role="region"], div') || el.parentElement;
-                    if (searchContainer) {
-                        var media = extractMediaFromElement(searchContainer);
-                        if (media && media.url) {
-                            triggerNativeDownload(media.url, media.name || '');
-                            e.preventDefault();
-                            e.stopPropagation();
-                            return;
+                var isDownloadBtn = /download|save|export|get\s*image|تحميل|تنزيل|حفظ|تصدير/i.test(ariaLabel) ||
+                                    /download|save|export|تحميل|تنزيل|حفظ/i.test(testId) ||
+                                    /download-btn|download-button|btn-download|save-button|btn-save|download/i.test(className) ||
+                                    /download|export|save|تحميل|تنزيل|حفظ|تصدير/i.test(textContent);
+
+                if (!isDownloadBtn) {
+                    var svg = el.querySelector && el.querySelector('svg');
+                    if (svg) {
+                        var svgInfo = (svg.getAttribute('class') || '') + ' ' + (svg.getAttribute('aria-label') || '') + ' ' + (svg.getAttribute('data-icon') || '');
+                        if (/download|save|export|arrow-down|lucide-download|fa-download/i.test(svgInfo)) {
+                            isDownloadBtn = true;
                         }
+                    }
+                }
+
+                if (isDownloadBtn && !el.href) {
+                    var media = findMediaForButton(el);
+                    if (media && media.url) {
+                        triggerNativeDownload(media.url, media.name || '');
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
                     }
                 }
 
@@ -1367,10 +2168,10 @@ const val INJECTED_DOWNLOAD_HOOK = """
         } catch(err) {}
     }, true);
 
-    // 4. Intercept window.open
+    // 6. Intercept window.open
     var origOpen = window.open;
     window.open = function(url) {
-        if (url && (url.startsWith('blob:') || url.startsWith('data:') || /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk)(\?.*)?$/i.test(url))) {
+        if (url && (url.indexOf('blob:') === 0 || url.indexOf('data:') === 0 || /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|tar|gz|mp3|mp4|m4a|wav|csv|txt|json|py|js|ts|html|css|md|java|c|cpp|sh|docx|xlsx|pptx)(\?.*)?${'$'}/i.test(url))) {
             triggerNativeDownload(url, '');
             return null;
         }
@@ -1379,96 +2180,682 @@ const val INJECTED_DOWNLOAD_HOOK = """
 })();
 """
 
-fun saveImageBytesToStorage(
-    context: Context,
+fun detectRealExtensionAndMime(
     bytes: ByteArray,
-    mimeType: String?,
-    suggestedName: String? = null
-): Uri? {
-    try {
-        val detectedMime = mimeType?.takeIf { it.isNotBlank() && it != "application/octet-stream" }
-            ?: when {
-                bytes.size > 8 && bytes[0] == 0x89.toByte() && bytes[1] == 0x50.toByte() -> "image/png"
-                bytes.size > 2 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() -> "image/jpeg"
-                bytes.size > 4 && bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte() -> "image/webp"
-                bytes.size > 4 && bytes[0] == 'G'.code.toByte() && bytes[1] == 'I'.code.toByte() -> "image/gif"
-                else -> "image/png"
-            }
+    currentMime: String?,
+    currentFilename: String
+): Pair<String, String> {
+    // 1. Magic Bytes detection for accurate format identification
+    if (bytes.size >= 3 && (bytes[0].toInt() and 0xFF) == 0xFF && (bytes[1].toInt() and 0xFF) == 0xD8 && (bytes[2].toInt() and 0xFF) == 0xFF) {
+        return Pair("jpg", "image/jpeg")
+    }
+    if (bytes.size >= 8 && (bytes[0].toInt() and 0xFF) == 0x89 && bytes[1] == 'P'.code.toByte() && bytes[2] == 'N'.code.toByte() && bytes[3] == 'G'.code.toByte()) {
+        return Pair("png", "image/png")
+    }
+    if (bytes.size >= 12 && bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte() && bytes[2] == 'F'.code.toByte() && bytes[3] == 'F'.code.toByte() &&
+        bytes[8] == 'W'.code.toByte() && bytes[9] == 'E'.code.toByte() && bytes[10] == 'B'.code.toByte() && bytes[11] == 'P'.code.toByte()) {
+        return Pair("webp", "image/webp")
+    }
+    if (bytes.size >= 4 && bytes[0] == 'G'.code.toByte() && bytes[1] == 'I'.code.toByte() && bytes[2] == 'F'.code.toByte()) {
+        return Pair("gif", "image/gif")
+    }
+    if (bytes.size >= 2 && bytes[0] == 'B'.code.toByte() && bytes[1] == 'M'.code.toByte()) {
+        return Pair("bmp", "image/bmp")
+    }
+    if (bytes.size >= 4 && bytes[0] == '%'.code.toByte() && bytes[1] == 'P'.code.toByte() && bytes[2] == 'D'.code.toByte() && bytes[3] == 'F'.code.toByte()) {
+        return Pair("pdf", "application/pdf")
+    }
+    if (bytes.size >= 4 && bytes[0] == 0x50.toByte() && bytes[1] == 0x4B.toByte() && bytes[2] == 0x03.toByte() && bytes[3] == 0x04.toByte()) {
+        val ext = if (currentFilename.endsWith(".apk", true)) "apk" else "zip"
+        val mime = if (ext == "apk") "application/vnd.android.package-archive" else "application/zip"
+        return Pair(ext, mime)
+    }
+    if (bytes.size >= 5) {
+        val header = try {
+            String(bytes.copyOfRange(0, minOf(bytes.size, 512)), Charsets.UTF_8).lowercase()
+        } catch (e: Exception) { "" }
+        if (header.contains("<svg") || (header.contains("<?xml") && header.contains("<svg"))) {
+            return Pair("svg", "image/svg+xml")
+        }
+    }
 
+    // 2. Check currentMime if concrete and clean
+    val cleanMime = currentMime?.takeIf {
+        it.isNotBlank() && it != "application/octet-stream" && it != "image/*" && it != "*/*"
+    }
+    if (cleanMime != null) {
+        val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(cleanMime)
+            ?: when {
+                cleanMime.contains("jpeg") || cleanMime.contains("jpg") -> "jpg"
+                cleanMime.contains("png") -> "png"
+                cleanMime.contains("webp") -> "webp"
+                cleanMime.contains("gif") -> "gif"
+                cleanMime.contains("svg") -> "svg"
+                cleanMime.contains("pdf") -> "pdf"
+                cleanMime.contains("zip") -> "zip"
+                cleanMime.contains("json") -> "json"
+                cleanMime.contains("csv") -> "csv"
+                cleanMime.contains("text") -> "txt"
+                else -> "bin"
+            }
+        return Pair(ext, cleanMime)
+    }
+
+    // 3. Check filename extension if valid and non-generic
+    val ext = currentFilename.substringAfterLast('.', "").lowercase()
+    if (ext.isNotBlank() && ext != "bin") {
+        val mappedMime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
+            ?: when (ext) {
+                "jpg", "jpeg" -> "image/jpeg"
+                "png" -> "image/png"
+                "webp" -> "image/webp"
+                "gif" -> "image/gif"
+                "svg" -> "image/svg+xml"
+                "pdf" -> "application/pdf"
+                "zip" -> "application/zip"
+                else -> "application/octet-stream"
+            }
+        return Pair(ext, mappedMime)
+    }
+
+    if (currentMime?.startsWith("image/") == true) {
+        return Pair("jpg", "image/jpeg")
+    }
+
+    return Pair("bin", "application/octet-stream")
+}
+
+fun resolveDownloadFilename(
+    url: String,
+    contentDisposition: String? = null,
+    mimeType: String? = null,
+    suggestedFilename: String? = null
+): String {
+    var name = suggestedFilename?.takeIf { it.isNotBlank() }
+    if (name != null && (name == "2Q==.bin" || name.contains("==") || name == "downloadfile.bin")) {
+        name = null
+    }
+
+    // 1. Data URLs
+    if (url.startsWith("data:")) {
+        val dataMime = url.substringAfter("data:").substringBefore(';').substringBefore(',').trim()
+        val effectiveMime = if (dataMime.isNotBlank() && dataMime != "application/octet-stream" && dataMime != "image/*") {
+            dataMime
+        } else {
+            mimeType?.takeIf { it.isNotBlank() && it != "image/*" } ?: "image/png"
+        }
         val ext = when {
-            detectedMime.contains("png") -> "png"
-            detectedMime.contains("jpeg") || detectedMime.contains("jpg") -> "jpg"
-            detectedMime.contains("webp") -> "webp"
-            detectedMime.contains("gif") -> "gif"
-            detectedMime.contains("svg") -> "svg"
+            effectiveMime.contains("jpeg") || effectiveMime.contains("jpg") -> "jpg"
+            effectiveMime.contains("png") -> "png"
+            effectiveMime.contains("webp") -> "webp"
+            effectiveMime.contains("gif") -> "gif"
+            effectiveMime.contains("svg") -> "svg"
             else -> "png"
         }
+        val base = name?.substringBeforeLast('.')?.takeIf { it.isNotBlank() && !it.contains("==") } ?: "orbit_image_${System.currentTimeMillis()}"
+        return "$base.$ext"
+    }
 
-        val filename = if (!suggestedName.isNullOrBlank()) {
-            val clean = suggestedName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
-            if (clean.contains(".")) clean else "$clean.$ext"
-        } else {
-            "AI_Image_${System.currentTimeMillis()}.$ext"
+    // 2. Blob URLs
+    if (url.startsWith("blob:")) {
+        val ext = when {
+            mimeType?.contains("jpeg") == true || mimeType?.contains("jpg") == true -> "jpg"
+            mimeType?.contains("png") == true -> "png"
+            mimeType?.contains("webp") == true -> "webp"
+            mimeType?.contains("gif") == true -> "gif"
+            else -> "png"
         }
+        val base = name?.substringBeforeLast('.')?.takeIf { it.isNotBlank() && !it.contains("==") } ?: "orbit_image_${System.currentTimeMillis()}"
+        return "$base.$ext"
+    }
 
-        var savedImageUri: Uri? = null
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Save to Pictures/Orbit (so it shows in Gallery)
-            val imageValues = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, filename)
-                put(MediaStore.Images.Media.MIME_TYPE, detectedMime)
-                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/Orbit")
-                put(MediaStore.Images.Media.IS_PENDING, 1)
+    // 3. Content-Disposition parsing
+    if (name.isNullOrBlank() && !contentDisposition.isNullOrBlank()) {
+        val utf8Match = Regex("filename\\*=UTF-8''([^;]+)", RegexOption.IGNORE_CASE).find(contentDisposition)
+        if (utf8Match != null) {
+            name = try {
+                java.net.URLDecoder.decode(utf8Match.groupValues[1].trim('"', '\''), "UTF-8")
+            } catch (e: Exception) {
+                utf8Match.groupValues[1].trim('"', '\'')
             }
-            val imgUri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, imageValues)
-            if (imgUri != null) {
-                context.contentResolver.openOutputStream(imgUri)?.use { os ->
-                    os.write(bytes)
-                }
-                imageValues.clear()
-                imageValues.put(MediaStore.Images.Media.IS_PENDING, 0)
-                context.contentResolver.update(imgUri, imageValues, null, null)
-                savedImageUri = imgUri
+        }
+        if (name.isNullOrBlank()) {
+            val normalMatch = Regex("filename=\"?([^\";]+)\"?", RegexOption.IGNORE_CASE).find(contentDisposition)
+            if (normalMatch != null) {
+                name = normalMatch.groupValues[1].trim()
             }
+        }
+    }
 
-            // Also save to Downloads/Orbit
+    // 4. URL path segment (clean path without query string)
+    if (name.isNullOrBlank() || name == "downloadfile.bin") {
+        try {
+            val cleanUrl = url.substringBefore('?')
+            val uri = Uri.parse(cleanUrl)
+            val segment = uri.lastPathSegment
+            if (!segment.isNullOrBlank() && segment.contains(".") && !segment.contains("==")) {
+                name = segment
+            }
+        } catch (e: Exception) {}
+    }
+
+    // 5. Try URLUtil on clean URL
+    if (name.isNullOrBlank() || name == "downloadfile.bin" || name.contains("==")) {
+        try {
+            val cleanUrl = url.substringBefore('?')
+            val guessed = URLUtil.guessFileName(cleanUrl, contentDisposition, mimeType)
+            if (!guessed.isNullOrBlank() && guessed != "downloadfile.bin" && !guessed.contains("==")) {
+                name = guessed
+            }
+        } catch (e: Exception) {}
+    }
+
+    // 6. Fallback if still null, binary default, or contains base64 garbage
+    val isImageContext = mimeType?.startsWith("image/") == true || url.contains("image") || url.contains("img")
+    if (name.isNullOrBlank() || name == "downloadfile.bin" || name.contains("==") || (name.endsWith(".bin") && isImageContext)) {
+        val ext = when {
+            mimeType?.contains("jpeg") == true || mimeType?.contains("jpg") == true -> "jpg"
+            mimeType?.contains("png") == true -> "png"
+            mimeType?.contains("webp") == true -> "webp"
+            mimeType?.contains("gif") == true -> "gif"
+            isImageContext -> "jpg"
+            else -> "bin"
+        }
+        name = if (isImageContext) "orbit_image_${System.currentTimeMillis()}.$ext" else "orbit_download_${System.currentTimeMillis()}.$ext"
+    }
+
+    // Sanitize illegal characters
+    name = name.replace(Regex("[\\\\/:*?\"<>|\\r\\n]"), "_").trim()
+
+    // Ensure extension exists
+    if (!name.contains(".") && !mimeType.isNullOrBlank()) {
+        val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)
+            ?: when {
+                mimeType.contains("jpeg") || mimeType.contains("jpg") -> "jpg"
+                mimeType.contains("png") -> "png"
+                mimeType.contains("webp") -> "webp"
+                mimeType.contains("gif") -> "gif"
+                mimeType.contains("svg") -> "svg"
+                mimeType.contains("pdf") -> "pdf"
+                mimeType.contains("zip") -> "zip"
+                else -> if (isImageContext) "jpg" else "bin"
+            }
+        name = "$name.$ext"
+    }
+
+    return name
+}
+
+fun saveBytesToStorage(
+    context: Context,
+    bytes: ByteArray,
+    filename: String,
+    mimeType: String?
+): Uri? {
+    val (realExt, realMime) = detectRealExtensionAndMime(bytes, mimeType, filename)
+    var baseName = filename.substringBeforeLast('.')
+    if (baseName.isBlank() || baseName.contains("==") || baseName == "downloadfile" || baseName == "2Q==" || baseName.endsWith("==")) {
+        val prefix = if (realMime.startsWith("image/")) "orbit_image" else "orbit_download"
+        baseName = "${prefix}_${System.currentTimeMillis()}"
+    }
+    val cleanFilename = "$baseName.$realExt"
+    val isImage = realMime.startsWith("image/")
+
+    var resultUri: Uri? = null
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (isImage) {
             try {
-                val dlValues = ContentValues().apply {
-                    put(MediaStore.Downloads.DISPLAY_NAME, filename)
-                    put(MediaStore.Downloads.MIME_TYPE, detectedMime)
-                    put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/Orbit")
-                    put(MediaStore.Downloads.IS_PENDING, 1)
+                val imageValues = ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, cleanFilename)
+                    put(MediaStore.Images.Media.MIME_TYPE, realMime)
+                    put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/Orbit")
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
                 }
-                val dlUri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, dlValues)
-                if (dlUri != null) {
-                    context.contentResolver.openOutputStream(dlUri)?.use { os ->
+                var imgUri = try {
+                    context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, imageValues)
+                } catch (e: Exception) {
+                    val safeName = "${baseName}_${System.currentTimeMillis()}.$realExt"
+                    imageValues.put(MediaStore.Images.Media.DISPLAY_NAME, safeName)
+                    context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, imageValues)
+                }
+                if (imgUri != null) {
+                    context.contentResolver.openOutputStream(imgUri)?.use { os ->
                         os.write(bytes)
                     }
-                    dlValues.clear()
-                    dlValues.put(MediaStore.Downloads.IS_PENDING, 0)
-                    context.contentResolver.update(dlUri, dlValues, null, null)
+                    imageValues.clear()
+                    imageValues.put(MediaStore.Images.Media.IS_PENDING, 0)
+                    context.contentResolver.update(imgUri, imageValues, null, null)
+                    resultUri = imgUri
                 }
             } catch (e: Exception) {
-                // Secondary copy is best-effort
+                e.printStackTrace()
             }
-        } else {
-            val picturesDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Orbit").apply { mkdirs() }
-            val file = File(picturesDir, filename)
-            file.writeBytes(bytes)
-            savedImageUri = Uri.fromFile(file)
-            MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), arrayOf(detectedMime), null)
         }
 
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
-            Toast.makeText(context.applicationContext, "Saved $filename to Gallery & Downloads", Toast.LENGTH_LONG).show()
+        // Also save to MediaStore.Downloads
+        try {
+            val dlValues = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, cleanFilename)
+                put(MediaStore.Downloads.MIME_TYPE, realMime)
+                put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/Orbit")
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+            var dlUri = try {
+                context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, dlValues)
+            } catch (e: Exception) {
+                val safeName = "${baseName}_${System.currentTimeMillis()}.$realExt"
+                dlValues.put(MediaStore.Downloads.DISPLAY_NAME, safeName)
+                context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, dlValues)
+            }
+            if (dlUri != null) {
+                context.contentResolver.openOutputStream(dlUri)?.use { os ->
+                    os.write(bytes)
+                }
+                dlValues.clear()
+                dlValues.put(MediaStore.Downloads.IS_PENDING, 0)
+                context.contentResolver.update(dlUri, dlValues, null, null)
+                if (resultUri == null) resultUri = dlUri
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-        return savedImageUri
+    }
+
+    // Direct filesystem fallback if MediaStore didn't produce a URI or on pre-Q
+    if (resultUri == null) {
+        try {
+            val targetDir = if (isImage) {
+                File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Orbit").apply { mkdirs() }
+            } else {
+                File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Orbit").apply { mkdirs() }
+            }
+            var targetFile = File(targetDir, cleanFilename)
+            var counter = 1
+            val base = cleanFilename.substringBeforeLast('.')
+            val ext = if (cleanFilename.contains('.')) ".${cleanFilename.substringAfterLast('.')}" else ""
+            while (targetFile.exists()) {
+                targetFile = File(targetDir, "$base ($counter)$ext")
+                counter++
+            }
+            targetFile.writeBytes(bytes)
+            resultUri = Uri.fromFile(targetFile)
+            MediaScannerConnection.scanFile(context, arrayOf(targetFile.absolutePath), arrayOf(realMime), null)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            try {
+                val cacheDir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir, "Orbit").apply { mkdirs() }
+                val targetFile = File(cacheDir, cleanFilename)
+                targetFile.writeBytes(bytes)
+                resultUri = Uri.fromFile(targetFile)
+            } catch (e2: Exception) {
+                e2.printStackTrace()
+            }
+        }
+    }
+
+    try {
+        if (resultUri != null && resultUri.scheme == "file") {
+            MediaScannerConnection.scanFile(context, arrayOf(resultUri.path ?: ""), arrayOf(realMime), null)
+        }
+    } catch (e: Exception) {}
+
+    return resultUri
+}
+
+fun downloadHttpUrlUniversal(
+    context: Context,
+    url: String,
+    userAgent: String? = null,
+    contentDisposition: String? = null,
+    mimeType: String? = null,
+    suggestedFilename: String? = null,
+    referer: String? = null
+) {
+    val initialName = resolveDownloadFilename(url, contentDisposition, mimeType, suggestedFilename)
+
+    android.os.Handler(android.os.Looper.getMainLooper()).post {
+        Toast.makeText(context.applicationContext, "Downloading $initialName...", Toast.LENGTH_SHORT).show()
+    }
+
+    kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val client = OkHttpClient.Builder()
+                .connectTimeout(25, TimeUnit.SECONDS)
+                .readTimeout(90, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .build()
+
+            val reqBuilder = Request.Builder().url(url)
+
+            val effectiveUserAgent = userAgent?.takeIf { it.isNotBlank() }
+                ?: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+            reqBuilder.addHeader("User-Agent", effectiveUserAgent)
+
+            try {
+                val cookies = CookieManager.getInstance().getCookie(url)
+                if (!cookies.isNullOrBlank()) {
+                    reqBuilder.addHeader("Cookie", cookies)
+                }
+            } catch (e: Exception) {}
+
+            if (!referer.isNullOrBlank()) {
+                reqBuilder.addHeader("Referer", referer)
+            }
+            reqBuilder.addHeader("Accept", "*/*")
+            reqBuilder.addHeader("Accept-Language", "en-US,en;q=0.9")
+
+            val response = client.newCall(reqBuilder.build()).execute()
+            if (response.isSuccessful) {
+                val respDisposition = response.header("Content-Disposition") ?: contentDisposition
+                val respMime = response.header("Content-Type")?.substringBefore(';') ?: mimeType
+                val finalName = resolveDownloadFilename(url, respDisposition, respMime, suggestedFilename)
+
+                val body = response.body
+                if (body != null) {
+                    val bytes = body.bytes()
+                    val uri = saveBytesToStorage(context, bytes, finalName, respMime)
+                    if (uri != null) {
+                        val isImage = respMime?.startsWith("image/") == true ||
+                            finalName.endsWith(".png", true) || finalName.endsWith(".jpg", true) ||
+                            finalName.endsWith(".jpeg", true) || finalName.endsWith(".webp", true)
+                        val message = if (isImage) "Saved $finalName to Gallery & Downloads" else "Saved $finalName to Downloads"
+                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                            Toast.makeText(context.applicationContext, message, Toast.LENGTH_LONG).show()
+                        }
+                        return@launch
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        withContext(Dispatchers.Main) {
+            fallbackSystemDownload(context, url, userAgent, contentDisposition, mimeType, initialName)
+        }
+    }
+}
+
+fun fallbackSystemDownload(
+    context: Context,
+    url: String,
+    userAgent: String?,
+    contentDisposition: String?,
+    mimeType: String?,
+    filename: String
+) {
+    try {
+        val uri = Uri.parse(url)
+        val request = DownloadManager.Request(uri).apply {
+            if (!mimeType.isNullOrBlank()) setMimeType(mimeType)
+            if (!userAgent.isNullOrBlank()) addRequestHeader("User-Agent", userAgent)
+            try {
+                val cookies = CookieManager.getInstance().getCookie(url)
+                if (!cookies.isNullOrBlank()) addRequestHeader("Cookie", cookies)
+            } catch (e: Exception) {}
+            setTitle(filename)
+            setDescription("Downloading via Orbit")
+            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
+        }
+        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
+        dm?.enqueue(request)
+        Toast.makeText(context.applicationContext, "Starting system download: $filename", Toast.LENGTH_SHORT).show()
     } catch (e: Exception) {
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
-            Toast.makeText(context.applicationContext, "Save error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            Toast.makeText(context.applicationContext, "Opening download...", Toast.LENGTH_SHORT).show()
+        } catch (ex: Exception) {
+            Toast.makeText(context.applicationContext, "Download failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
         }
-        return null
+    }
+}
+
+fun downloadFileUniversal(
+    context: Context,
+    url: String,
+    userAgent: String? = null,
+    contentDisposition: String? = null,
+    mimeType: String? = null,
+    suggestedFilename: String? = null,
+    referer: String? = null,
+    webView: WebView? = null,
+    skipConfirmation: Boolean = false,
+    onPromptConfirmation: ((PendingDownloadPrompt) -> Unit)? = null
+) {
+    if (url.isBlank()) return
+
+    val resolvedName = resolveDownloadFilename(url, contentDisposition, mimeType, suggestedFilename)
+
+    if (!skipConfirmation) {
+        if (onPromptConfirmation != null) {
+            onPromptConfirmation(
+                PendingDownloadPrompt(
+                    filename = resolvedName,
+                    mimeType = mimeType,
+                    originUrl = url,
+                    onConfirm = {
+                        downloadFileUniversal(
+                            context = context,
+                            url = url,
+                            userAgent = userAgent,
+                            contentDisposition = contentDisposition,
+                            mimeType = mimeType,
+                            suggestedFilename = resolvedName,
+                            referer = referer,
+                            webView = webView,
+                            skipConfirmation = true
+                        )
+                    }
+                )
+            )
+            return
+        }
+
+        val showFallbackDialog = Runnable {
+            try {
+                android.app.AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                    .setTitle("Download file?")
+                    .setMessage("Do you want to download:\n$resolvedName")
+                    .setIcon(android.R.drawable.stat_sys_download)
+                    .setPositiveButton("Download") { _, _ ->
+                        downloadFileUniversal(
+                            context = context,
+                            url = url,
+                            userAgent = userAgent,
+                            contentDisposition = contentDisposition,
+                            mimeType = mimeType,
+                            suggestedFilename = resolvedName,
+                            referer = referer,
+                            webView = webView,
+                            skipConfirmation = true
+                        )
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            } catch (e: Exception) {
+                downloadFileUniversal(
+                    context = context,
+                    url = url,
+                    userAgent = userAgent,
+                    contentDisposition = contentDisposition,
+                    mimeType = mimeType,
+                    suggestedFilename = resolvedName,
+                    referer = referer,
+                    webView = webView,
+                    skipConfirmation = true
+                )
+            }
+        }
+
+        if (context is Activity) {
+            context.runOnUiThread(showFallbackDialog)
+        } else {
+            android.os.Handler(android.os.Looper.getMainLooper()).post(showFallbackDialog)
+        }
+        return
+    }
+
+    if (url.startsWith("data:")) {
+        saveDataUrlToDownloads(context, url, mimeType, resolvedName)
+        return
+    }
+
+    if (url.startsWith("blob:")) {
+        if (webView != null) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                Toast.makeText(context.applicationContext, "Extracting file...", Toast.LENGTH_SHORT).show()
+            }
+            downloadBlob(webView, url, resolvedName)
+        } else {
+            Toast.makeText(context.applicationContext, "Cannot extract blob: WebView unavailable", Toast.LENGTH_SHORT).show()
+        }
+        return
+    }
+
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+        downloadHttpUrlUniversal(
+            context = context,
+            url = url,
+            userAgent = userAgent ?: webView?.settings?.userAgentString,
+            contentDisposition = contentDisposition,
+            mimeType = mimeType,
+            suggestedFilename = resolvedName,
+            referer = referer ?: webView?.url
+        )
+        return
+    }
+
+    try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context.applicationContext, "Cannot handle URL: $url", Toast.LENGTH_SHORT).show()
+    }
+}
+
+fun downloadBlob(webView: WebView, blobUrl: String, suggestedFilename: String? = null) {
+    val escapedUrl = blobUrl.replace("'", "\\'")
+    val filename = suggestedFilename?.replace("'", "\\'") ?: "orbit_image_${System.currentTimeMillis()}"
+    val js = """
+        (function() {
+            var url = '$escapedUrl';
+            var name = '$filename';
+            function send(dataUrl, mime) {
+                if (!window.AndroidDownloadBridge || !dataUrl) return;
+                var CHUNK_SIZE = 400000;
+                if (dataUrl.length > CHUNK_SIZE && window.AndroidDownloadBridge.onChunkStart) {
+                    var tid = 'blob_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+                    window.AndroidDownloadBridge.onChunkStart(tid, dataUrl.length, mime || '', name, true);
+                    for (var offset = 0; offset < dataUrl.length; offset += CHUNK_SIZE) {
+                        var chunk = dataUrl.substring(offset, offset + CHUNK_SIZE);
+                        window.AndroidDownloadBridge.onChunkPart(tid, chunk);
+                    }
+                    window.AndroidDownloadBridge.onChunkEnd(tid);
+                } else if (window.AndroidDownloadBridge.onBlobDataDirectSave) {
+                    window.AndroidDownloadBridge.onBlobDataDirectSave(dataUrl, mime || '', name);
+                } else {
+                    window.AndroidDownloadBridge.onBlobData(dataUrl, mime || '', name);
+                }
+            }
+            if (window.__orbitBlobStore && window.__orbitBlobStore.has(url)) {
+                try {
+                    var directBlob = window.__orbitBlobStore.get(url);
+                    var reader = new FileReader();
+                    reader.onloadend = function() {
+                        if (reader.result) send(reader.result, directBlob.type || 'image/png');
+                    };
+                    reader.readAsDataURL(directBlob);
+                    return;
+                } catch(e) {}
+            }
+            fetch(url)
+                .then(function(res) {
+                    var ct = (res.headers && res.headers.get('Content-Type')) || '';
+                    return res.blob().then(function(b) {
+                        return { blob: b, type: ct || b.type || '' };
+                    });
+                })
+                .then(function(info) {
+                    var reader = new FileReader();
+                    reader.onloadend = function() {
+                        if (reader.result) send(reader.result, info.type || 'image/png');
+                    };
+                    reader.readAsDataURL(info.blob);
+                })
+                .catch(function() {
+                    try {
+                        var xhr = new XMLHttpRequest();
+                        xhr.open('GET', url, true);
+                        xhr.responseType = 'blob';
+                        xhr.onload = function() {
+                            if (xhr.response) {
+                                var reader = new FileReader();
+                                reader.onloadend = function() {
+                                    if (reader.result) send(reader.result, xhr.response.type || 'image/png');
+                                };
+                                reader.readAsDataURL(xhr.response);
+                            }
+                        };
+                        xhr.send();
+                    } catch(e) {}
+                });
+        })();
+    """.trimIndent()
+    webView.evaluateJavascript(js, null)
+}
+
+fun saveDataUrlToDownloads(
+    context: Context,
+    dataUrl: String,
+    mimeType: String?,
+    suggestedName: String? = null
+) {
+    kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val commaIndex = dataUrl.indexOf(",")
+            if (commaIndex == -1) return@launch
+            val metadata = dataUrl.substring(0, commaIndex)
+            val base64Data = dataUrl.substring(commaIndex + 1)
+            val bytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+
+            val headerMime = if (metadata.contains(";base64")) {
+                metadata.removePrefix("data:").removeSuffix(";base64").substringBefore(';').trim()
+            } else null
+
+            val effectiveMime = headerMime?.takeIf { it.isNotBlank() && it != "application/octet-stream" && it != "image/*" }
+                ?: mimeType?.takeIf { it.isNotBlank() && it != "application/octet-stream" && it != "image/*" }
+                ?: "image/png"
+
+            val filename = resolveDownloadFilename(
+                url = "data:$effectiveMime",
+                contentDisposition = null,
+                mimeType = effectiveMime,
+                suggestedFilename = suggestedName
+            )
+
+            val uri = saveBytesToStorage(context, bytes, filename, effectiveMime)
+            if (uri != null) {
+                val isImage = effectiveMime.startsWith("image/") ||
+                    filename.endsWith(".png", true) || filename.endsWith(".jpg", true) ||
+                    filename.endsWith(".jpeg", true) || filename.endsWith(".webp", true)
+                val msg = if (isImage) "Saved to Gallery & Downloads" else "Saved $filename to Downloads"
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context.applicationContext, msg, Toast.LENGTH_LONG).show()
+                }
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context.applicationContext, "Save error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 }
 
@@ -1498,223 +2885,7 @@ fun shareImage(context: Context, bytes: ByteArray, mimeType: String?, filename: 
     }
 }
 
-fun downloadHttpFile(
-    context: Context,
-    url: String,
-    userAgent: String? = null,
-    contentDisposition: String? = null,
-    mimetype: String? = null
-) {
-    try {
-        val uri = Uri.parse(url)
-        val filename = try {
-            val guessed = URLUtil.guessFileName(url, contentDisposition, mimetype)
-            if (guessed.isNullOrBlank() || guessed == "downloadfile.bin") {
-                val lastSegment = uri.lastPathSegment
-                if (!lastSegment.isNullOrBlank() && lastSegment.contains(".")) lastSegment else guessed
-            } else guessed
-        } catch (e: Exception) {
-            "download_${System.currentTimeMillis()}"
-        }
-
-        val request = DownloadManager.Request(uri).apply {
-            val ext = MimeTypeMap.getFileExtensionFromUrl(url)
-            val effectiveMime = mimetype?.takeIf { it.isNotBlank() && it != "application/octet-stream" }
-                ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
-                ?: "application/octet-stream"
-            setMimeType(effectiveMime)
-
-            try {
-                val cookies = CookieManager.getInstance().getCookie(url)
-                if (!cookies.isNullOrBlank()) {
-                    addRequestHeader("Cookie", cookies)
-                }
-            } catch (e: Exception) {
-                // Ignore
-            }
-
-            if (!userAgent.isNullOrBlank()) {
-                addRequestHeader("User-Agent", userAgent)
-            }
-
-            setDescription("Downloading file via Orbit")
-            setTitle(filename)
-            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
-        }
-
-        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
-        dm?.enqueue(request)
-        Toast.makeText(context, "Downloading $filename...", Toast.LENGTH_SHORT).show()
-    } catch (e: Exception) {
-        try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(intent)
-            Toast.makeText(context, "Starting download...", Toast.LENGTH_SHORT).show()
-        } catch (ex: Exception) {
-            Toast.makeText(context, "Download failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-        }
-    }
-}
-
-fun saveDataUrlToDownloads(
-    context: Context,
-    dataUrl: String,
-    mimeType: String?,
-    suggestedName: String? = null
-) {
-    try {
-        val commaIndex = dataUrl.indexOf(",")
-        if (commaIndex == -1) return
-        val metadata = dataUrl.substring(0, commaIndex)
-        val base64Data = dataUrl.substring(commaIndex + 1)
-        val bytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
-
-        val detectedMime = mimeType?.takeIf { it.isNotBlank() && it != "application/octet-stream" }
-            ?: if (metadata.contains(";base64")) {
-                metadata.removePrefix("data:").removeSuffix(";base64")
-            } else {
-                "application/octet-stream"
-            }
-
-        // If it is an image, save directly to Gallery and Downloads
-        if (detectedMime.startsWith("image/")) {
-            saveImageBytesToStorage(context, bytes, detectedMime, suggestedName)
-            return
-        }
-
-        val ext = when {
-            detectedMime.contains("pdf") -> "pdf"
-            detectedMime.contains("svg") -> "svg"
-            detectedMime.contains("json") -> "json"
-            detectedMime.contains("text/plain") -> "txt"
-            else -> "bin"
-        }
-
-        val filename = suggestedName?.takeIf { it.contains(".") }
-            ?: (suggestedName ?: "download_${System.currentTimeMillis()}") + ".$ext"
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val contentValues = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, filename)
-                put(MediaStore.Downloads.MIME_TYPE, detectedMime)
-                put(MediaStore.Downloads.IS_PENDING, 1)
-            }
-            val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-            if (uri != null) {
-                context.contentResolver.openOutputStream(uri)?.use { os ->
-                    os.write(bytes)
-                }
-                contentValues.clear()
-                contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
-                context.contentResolver.update(uri, contentValues, null, null)
-                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                    Toast.makeText(context.applicationContext, "Saved $filename to Downloads", Toast.LENGTH_SHORT).show()
-                }
-            }
-        } else {
-            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            downloadsDir.mkdirs()
-            val file = File(downloadsDir, filename)
-            file.writeBytes(bytes)
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                Toast.makeText(context.applicationContext, "Saved $filename to Downloads", Toast.LENGTH_SHORT).show()
-            }
-        }
-    } catch (e: Exception) {
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
-            Toast.makeText(context.applicationContext, "Download error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-        }
-    }
-}
-
-fun downloadBlob(webView: WebView, blobUrl: String, suggestedFilename: String? = null) {
-    val escapedUrl = blobUrl.replace("'", "\\'")
-    val filename = suggestedFilename?.replace("'", "\\'") ?: "ai_image_${System.currentTimeMillis()}.png"
-    val js = """
-        (function() {
-            var url = '$escapedUrl';
-            var name = '$filename';
-            function send(dataUrl, mime) {
-                if (window.AndroidDownloadBridge) {
-                    window.AndroidDownloadBridge.onBlobData(dataUrl, mime, name);
-                }
-            }
-            fetch(url)
-                .then(function(res) { return res.blob(); })
-                .then(function(blob) {
-                    var reader = new FileReader();
-                    reader.onloadend = function() {
-                        send(reader.result, blob.type || 'image/png');
-                    };
-                    reader.readAsDataURL(blob);
-                })
-                .catch(function() {
-                    try {
-                        var xhr = new XMLHttpRequest();
-                        xhr.open('GET', url, true);
-                        xhr.responseType = 'blob';
-                        xhr.onload = function() {
-                            var reader = new FileReader();
-                            reader.onloadend = function() {
-                                send(reader.result, xhr.response.type || 'image/png');
-                            };
-                            reader.readAsDataURL(xhr.response);
-                        };
-                        xhr.send();
-                    } catch(e) {}
-                });
-        })();
-    """.trimIndent()
-    webView.evaluateJavascript(js, null)
-}
-
-suspend fun downloadHttpImageOkHttp(
-    context: Context,
-    url: String,
-    userAgent: String?,
-    referer: String?,
-    suggestedFilename: String?
-): Boolean = withContext(Dispatchers.IO) {
-    try {
-        val client = OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .followRedirects(true)
-            .build()
-
-        val reqBuilder = Request.Builder()
-            .url(url)
-            .addHeader("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-
-        if (!userAgent.isNullOrBlank()) {
-            reqBuilder.addHeader("User-Agent", userAgent)
-        }
-        val cookies = CookieManager.getInstance().getCookie(url)
-        if (!cookies.isNullOrBlank()) {
-            reqBuilder.addHeader("Cookie", cookies)
-        }
-        if (!referer.isNullOrBlank()) {
-            reqBuilder.addHeader("Referer", referer)
-        }
-
-        val response = client.newCall(reqBuilder.build()).execute()
-        if (response.isSuccessful) {
-            val bytes = response.body?.bytes()
-            if (bytes != null && bytes.isNotEmpty()) {
-                val contentType = response.header("Content-Type") ?: "image/png"
-                saveImageBytesToStorage(context, bytes, contentType, suggestedFilename)
-                return@withContext true
-            }
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-    return@withContext false
-}
-
+// Backwards-compatibility aliases
 fun downloadAndSaveImage(
     context: Context,
     webView: WebView?,
@@ -1722,69 +2893,30 @@ fun downloadAndSaveImage(
     suggestedName: String? = null,
     mimetype: String? = null
 ) {
-    if (url.isBlank()) return
-    val cleanName = suggestedName?.takeIf { it.isNotBlank() } ?: "ai_image_${System.currentTimeMillis()}"
+    downloadFileUniversal(
+        context = context,
+        url = url,
+        userAgent = webView?.settings?.userAgentString,
+        mimeType = mimetype,
+        suggestedFilename = suggestedName,
+        referer = webView?.url,
+        webView = webView
+    )
+}
 
-    if (url.startsWith("data:")) {
-        saveDataUrlToDownloads(context, url, mimetype, cleanName)
-        return
-    }
-
-    if (url.startsWith("blob:")) {
-        if (webView != null) {
-            Toast.makeText(context, "Extracting picture...", Toast.LENGTH_SHORT).show()
-            downloadBlob(webView, url, cleanName)
-        }
-        return
-    }
-
-    // For HTTP / HTTPS: First try in-page DOM canvas extraction if webView is available
-    if (webView != null) {
-        val escapedUrl = url.replace("'", "\\'")
-        val escapedName = cleanName.replace("'", "\\'")
-        val js = """
-            (function() {
-                var target = '$escapedUrl';
-                var name = '$escapedName';
-                var img = document.querySelector('img[src="' + target + '"]') ||
-                          Array.from(document.querySelectorAll('img')).find(function(i) { return (i.currentSrc === target || i.src === target); });
-                if (img && img.complete && img.naturalWidth > 0) {
-                    try {
-                        var canvas = document.createElement('canvas');
-                        canvas.width = img.naturalWidth;
-                        canvas.height = img.naturalHeight;
-                        var ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0);
-                        var dataUrl = canvas.toDataURL('image/png');
-                        if (window.AndroidDownloadBridge) {
-                            window.AndroidDownloadBridge.onBlobData(dataUrl, 'image/png', name);
-                            return;
-                        }
-                    } catch(e) {}
-                }
-                fetch(target, { credentials: 'include' })
-                    .then(function(r) { return r.blob(); })
-                    .then(function(b) {
-                        var reader = new FileReader();
-                        reader.onloadend = function() {
-                            if (window.AndroidDownloadBridge) {
-                                window.AndroidDownloadBridge.onBlobData(reader.result, b.type || 'image/png', name);
-                            }
-                        };
-                        reader.readAsDataURL(b);
-                    })
-                    .catch(function() {
-                        if (window.AndroidDownloadBridge) {
-                            window.AndroidDownloadBridge.onFallbackHttpDownload(target, name);
-                        }
-                    });
-            })();
-        """.trimIndent()
-        Toast.makeText(context, "Saving picture...", Toast.LENGTH_SHORT).show()
-        webView.evaluateJavascript(js, null)
-        return
-    }
-
-    downloadHttpFile(context, url, null, null, mimetype ?: "image/*")
+fun downloadHttpFile(
+    context: Context,
+    url: String,
+    userAgent: String? = null,
+    contentDisposition: String? = null,
+    mimetype: String? = null
+) {
+    downloadFileUniversal(
+        context = context,
+        url = url,
+        userAgent = userAgent,
+        contentDisposition = contentDisposition,
+        mimeType = mimetype
+    )
 }
 

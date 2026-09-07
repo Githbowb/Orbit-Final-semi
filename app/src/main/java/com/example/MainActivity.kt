@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -714,9 +715,12 @@ fun SystemPerformanceRamCard(
     }
 
     val signalOrange = Color(0xFFFF6B35)
+    val neonCyan = Color(0xFF00F0FF)
     val trackBlue = Color(0xFF3D9BFF)
     val inkLight = Color(0xFFEEF0F6)
-    val inkDim = Color(0xFF5A6178)
+    val inkDim = Color(0xFF8E95AA)
+    val emeraldGreen = Color(0xFF00E676)
+    val alertPink = Color(0xFFFF2A85)
 
     val totalMem = metrics.totalMemBytes.coerceAtLeast(1L)
     val availMem = metrics.availMemBytes.coerceIn(0L, totalMem)
@@ -734,266 +738,687 @@ fun SystemPerformanceRamCard(
     } else {
         stringResource(id = R.string.status_high_usage_warning)
     }
-    val statusColor = if (isOptimal) Color(0xFF00E676) else Color(0xFFFF2A85)
+    val statusColor = if (isOptimal) emeraldGreen else alertPink
+
+    // Smooth gauge & progress animations
+    val animatedPercent by animateFloatAsState(
+        targetValue = usedPercent,
+        animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+        label = "RamPercentAnim"
+    )
+
+    // Pulsing live HUD radar & telemetry beacon
+    val infiniteTransition = rememberInfiniteTransition(label = "RamTelemetryPulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAlpha"
+    )
+    val waveScale by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 1.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutLinearInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "waveScale"
+    )
+    val waveAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.7f,
+        targetValue = 0.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutLinearInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "waveAlpha"
+    )
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(18.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color(0x0CFFFFFF)),
-        shape = RoundedCornerShape(18.dp)
+            .border(
+                1.dp,
+                Brush.horizontalGradient(
+                    listOf(
+                        trackBlue.copy(alpha = 0.45f),
+                        signalOrange.copy(alpha = 0.35f),
+                        trackBlue.copy(alpha = 0.2f)
+                    )
+                ),
+                RoundedCornerShape(22.dp)
+            ),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0C101C)),
+        shape = RoundedCornerShape(22.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color(0xFF0F1526),
+                            Color(0xFF0A0E18),
+                            Color(0xFF0D1220)
+                        )
+                    )
+                )
         ) {
-            // Header Row inside Card: Title + Icon (left) and Status Badge (right)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Futuristic Top Accent Laser Line
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.5.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                trackBlue.copy(alpha = 0.2f),
+                                neonCyan,
+                                signalOrange,
+                                statusColor,
+                                trackBlue.copy(alpha = 0.2f)
+                            )
+                        )
+                    )
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
             ) {
+                // Header Row: Cockpit Telemetry Badge + Live Pulsing Status Pill
                 Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(signalOrange.copy(alpha = 0.15f))
+                                .border(1.dp, signalOrange.copy(alpha = 0.45f), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Speed,
+                                contentDescription = null,
+                                tint = signalOrange,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Column(verticalArrangement = Arrangement.Center) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(5.dp)
+                                        .clip(CircleShape)
+                                        .background(neonCyan.copy(alpha = pulseAlpha))
+                                )
+                                Text(
+                                    text = "LIVE TELEMETRY // HARDWARE",
+                                    color = neonCyan,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 1.2.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(id = R.string.ram_monitor_title),
+                                color = inkLight,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.3.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Live Status Pill with glowing animated beacon
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(signalOrange.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(statusColor.copy(alpha = 0.12f))
+                            .border(1.dp, statusColor.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Speed,
-                            contentDescription = null,
-                            tint = signalOrange,
-                            modifier = Modifier.size(18.dp)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(statusColor.copy(alpha = pulseAlpha))
+                            )
+                            Text(
+                                text = statusText,
+                                color = statusColor,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
                     }
-                    Text(
-                        text = stringResource(id = R.string.ram_monitor_title),
-                        color = inkLight,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Health status badge
-                Box(
+                // Hero Cockpit Layout: Circular Arc Speedometer + VU Load Meter
+                Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(statusColor.copy(alpha = 0.15f))
-                        .border(1.dp, statusColor.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0x0EFFFFFF))
+                        .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
+                    // Circular HUD Arc Gauge
+                    Box(
+                        modifier = Modifier.size(96.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val strokeWidth = 8.dp.toPx()
+                            val padding = strokeWidth / 2f + 4.dp.toPx()
+                            val arcRadius = (size.minDimension - padding * 2f) / 2f
+                            val arcCenter = Offset(size.width / 2f, size.height / 2f)
+
+                            // 1. Draw perimeter graduation tick marks (135° to 405°)
+                            val totalTicks = 18
+                            val startAngleDeg = 135f
+                            val sweepAngleDeg = 270f
+                            val activeSweepAngle = sweepAngleDeg * animatedPercent
+
+                            for (i in 0..totalTicks) {
+                                val tickAngleDeg = startAngleDeg + (sweepAngleDeg * (i.toFloat() / totalTicks))
+                                val tickAngleRad = Math.toRadians(tickAngleDeg.toDouble())
+                                val isTickActive = (tickAngleDeg - startAngleDeg) <= activeSweepAngle
+
+                                val outerR = arcRadius + 5.dp.toPx()
+                                val innerR = arcRadius + 2.dp.toPx()
+
+                                val startX = arcCenter.x + innerR * Math.cos(tickAngleRad).toFloat()
+                                val startY = arcCenter.y + innerR * Math.sin(tickAngleRad).toFloat()
+                                val endX = arcCenter.x + outerR * Math.cos(tickAngleRad).toFloat()
+                                val endY = arcCenter.y + outerR * Math.sin(tickAngleRad).toFloat()
+
+                                drawLine(
+                                    color = if (isTickActive) signalOrange.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.12f),
+                                    start = Offset(startX, startY),
+                                    end = Offset(endX, endY),
+                                    strokeWidth = if (i % 3 == 0) 2.dp.toPx() else 1.2.dp.toPx(),
+                                    cap = StrokeCap.Round
+                                )
+                            }
+
+                            // 2. Background Track Arc
+                            drawArc(
+                                color = Color.White.copy(alpha = 0.08f),
+                                startAngle = startAngleDeg,
+                                sweepAngle = sweepAngleDeg,
+                                useCenter = false,
+                                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                            )
+
+                            // 3. Active Foreground Gradient Arc
+                            val arcGradient = Brush.sweepGradient(
+                                0.0f to neonCyan,
+                                0.45f to signalOrange,
+                                0.85f to alertPink,
+                                1.0f to neonCyan
+                            )
+                            drawArc(
+                                brush = arcGradient,
+                                startAngle = startAngleDeg,
+                                sweepAngle = activeSweepAngle,
+                                useCenter = false,
+                                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                            )
+
+                            // 4. Glowing Leading Orb at Arc Tip
+                            if (activeSweepAngle > 5f) {
+                                val tipAngleRad = Math.toRadians((startAngleDeg + activeSweepAngle).toDouble())
+                                val tipX = arcCenter.x + arcRadius * Math.cos(tipAngleRad).toFloat()
+                                val tipY = arcCenter.y + arcRadius * Math.sin(tipAngleRad).toFloat()
+                                drawCircle(
+                                    color = Color.White,
+                                    radius = 3.dp.toPx(),
+                                    center = Offset(tipX, tipY)
+                                )
+                                drawCircle(
+                                    color = signalOrange.copy(alpha = 0.6f),
+                                    radius = 6.dp.toPx(),
+                                    center = Offset(tipX, tipY)
+                                )
+                            }
+                        }
+
+                        // Center Percentage Readout
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "${(animatedPercent * 100).toInt()}%",
+                                color = inkLight,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = (-0.5).sp
+                            )
+                            Text(
+                                text = "RAM LOAD",
+                                color = inkDim,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                    }
+
+                    // Right Telemetry & Multi-Segment Meter
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.ram_usage_label),
+                                color = inkDim,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "${"%.1f".format(availGb)} GB ${stringResource(id = R.string.unit_free)}",
+                                color = emeraldGreen,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Used / Total primary readout
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val usedGb = (usedMem.toDouble() / (1024.0 * 1024.0 * 1024.0)).toFloat()
+                            Text(
+                                text = "%.1f".format(usedGb),
+                                color = signalOrange,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = "GB USED",
+                                color = signalOrange.copy(alpha = 0.8f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            )
+                            Text(
+                                text = "/ ${"%.1f".format(totalGb)} GB",
+                                color = inkLight.copy(alpha = 0.6f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Multi-Segment Glowing VU Bar (14 segments)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            val segmentCount = 14
+                            for (idx in 0 until segmentCount) {
+                                val segFrac = (idx + 1).toFloat() / segmentCount
+                                val isLit = segFrac <= (animatedPercent + 0.04f)
+                                val segColor = when {
+                                    segFrac > 0.8f -> alertPink
+                                    segFrac > 0.5f -> signalOrange
+                                    else -> neonCyan
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(
+                                            if (isLit) segColor else Color.White.copy(alpha = 0.08f)
+                                        )
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Bottom dynamic chip
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Memory,
+                                contentDescription = null,
+                                tint = trackBlue,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                text = "ACTIVE ENGINE BUFFERING",
+                                color = trackBlue.copy(alpha = 0.85f),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 3 Avionics Metric Pods (Available, Total, Orbit Heap)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Pod 1: Available RAM
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .border(1.dp, emeraldGreen.copy(alpha = 0.22f), RoundedCornerShape(14.dp)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0x10FFFFFF)),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(2.5.dp)
+                                    .background(emeraldGreen)
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 9.dp, vertical = 9.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = emeraldGreen,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Text(
+                                        text = stringResource(id = R.string.ram_available_title),
+                                        color = inkDim,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(5.dp))
+                                Text(
+                                    text = stringResource(id = R.string.ram_available_fmt, availGb),
+                                    color = emeraldGreen,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                // Decorative Activity Spark
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                    verticalAlignment = Alignment.Bottom
+                                ) {
+                                    val heights = listOf(4.dp, 8.dp, 11.dp, 6.dp)
+                                    heights.forEach { h ->
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(h)
+                                                .clip(RoundedCornerShape(1.dp))
+                                                .background(emeraldGreen.copy(alpha = 0.45f))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Pod 2: Total RAM
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .border(1.dp, trackBlue.copy(alpha = 0.22f), RoundedCornerShape(14.dp)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0x10FFFFFF)),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(2.5.dp)
+                                    .background(trackBlue)
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 9.dp, vertical = 9.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Storage,
+                                        contentDescription = null,
+                                        tint = trackBlue,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Text(
+                                        text = stringResource(id = R.string.ram_total_title),
+                                        color = inkDim,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(5.dp))
+                                Text(
+                                    text = stringResource(id = R.string.ram_total_fmt, totalGb),
+                                    color = trackBlue,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                // Decorative Activity Spark
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                    verticalAlignment = Alignment.Bottom
+                                ) {
+                                    val heights = listOf(9.dp, 6.dp, 11.dp, 7.dp)
+                                    heights.forEach { h ->
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(h)
+                                                .clip(RoundedCornerShape(1.dp))
+                                                .background(trackBlue.copy(alpha = 0.45f))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Pod 3: Orbit App Heap
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .border(1.dp, signalOrange.copy(alpha = 0.22f), RoundedCornerShape(14.dp)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0x10FFFFFF)),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(2.5.dp)
+                                    .background(signalOrange)
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 9.dp, vertical = 9.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Layers,
+                                        contentDescription = null,
+                                        tint = signalOrange,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Text(
+                                        text = stringResource(id = R.string.app_heap_title),
+                                        color = inkDim,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(5.dp))
+                                Text(
+                                    text = stringResource(id = R.string.app_heap_fmt, heapMb),
+                                    color = signalOrange,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                // Decorative Activity Spark
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                    verticalAlignment = Alignment.Bottom
+                                ) {
+                                    val heights = listOf(6.dp, 10.dp, 5.dp, 8.dp)
+                                    heights.forEach { h ->
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(h)
+                                                .clip(RoundedCornerShape(1.dp))
+                                                .background(signalOrange.copy(alpha = 0.45f))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Floating Service Memory Impact Banner with Radar Ping
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0x0EFFFFFF))
+                        .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Radar Wave Beacon
+                        Box(
+                            modifier = Modifier.size(14.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(14.dp * waveScale)
+                                    .clip(CircleShape)
+                                    .border(1.dp, statusColor.copy(alpha = waveAlpha), CircleShape)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(statusColor)
+                            )
+                        }
+
+                        Text(
+                            text = stringResource(id = R.string.overlay_impact_title),
+                            color = inkDim,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
                     Text(
                         text = statusText,
                         color = statusColor,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Usage Percentage Bar Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(id = R.string.ram_usage_label),
-                    color = inkDim,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = "$usedPercentInt%",
-                    color = signalOrange,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Dynamic Signal Orange Progress Bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.White.copy(alpha = 0.08f))
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(usedPercent)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(signalOrange)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // 3 Real Metric Columns / Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // Avail RAM
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .border(1.dp, Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp)),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.03f)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 10.dp),
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.ram_available_title),
-                            color = inkDim,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(id = R.string.ram_available_fmt, availGb),
-                            color = Color(0xFF00E676),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                // Total RAM
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .border(1.dp, Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp)),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.03f)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 10.dp),
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.ram_total_title),
-                            color = inkDim,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(id = R.string.ram_total_fmt, totalGb),
-                            color = trackBlue,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                // App RAM / Orbit Memory
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .border(1.dp, Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp)),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.03f)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 10.dp),
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.app_heap_title),
-                            color = inkDim,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(id = R.string.app_heap_fmt, heapMb),
-                            color = signalOrange,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Floating Service Memory Impact Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color.White.copy(alpha = 0.03f))
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(statusColor)
-                    )
-                    Text(
-                        text = stringResource(id = R.string.overlay_impact_title),
-                        color = inkDim,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = statusText,
-                    color = statusColor,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
             }
         }
     }

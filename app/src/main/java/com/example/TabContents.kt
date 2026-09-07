@@ -84,9 +84,9 @@ fun TabSwitcherBar(
     Row(
         modifier = Modifier
             .fillOuterWidth()
-            .height(56.dp)
+            .height(54.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF0E1220))
+            .background(Color(0xFF090D18))
             .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -103,8 +103,8 @@ fun TabSwitcherBar(
                         if (isSelected) {
                             Brush.verticalGradient(
                                 listOf(
-                                    accentColor.copy(alpha = 0.28f),
-                                    accentColor.copy(alpha = 0.10f)
+                                    accentColor.copy(alpha = 0.25f),
+                                    accentColor.copy(alpha = 0.08f)
                                 )
                             )
                         } else {
@@ -113,7 +113,7 @@ fun TabSwitcherBar(
                     )
                     .border(
                         1.dp,
-                        if (isSelected) accentColor.copy(alpha = 0.55f) else Color.Transparent,
+                        if (isSelected) accentColor.copy(alpha = 0.65f) else Color.Transparent,
                         RoundedCornerShape(12.dp)
                     )
                     .clickable { onTabSelected(tab) }
@@ -128,15 +128,15 @@ fun TabSwitcherBar(
                     Icon(
                         imageVector = icon,
                         contentDescription = label,
-                        tint = if (isSelected) accentColor else TextSecondary.copy(alpha = 0.75f),
-                        modifier = Modifier.size(19.dp)
+                        tint = if (isSelected) accentColor else TextSecondary.copy(alpha = 0.65f),
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.height(3.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = label,
                         fontSize = 10.5.sp,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                        color = if (isSelected) Color.White else TextSecondary,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) Color.White else TextSecondary.copy(alpha = 0.85f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -256,11 +256,13 @@ fun LauncherTabContent(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color(0xFF0F1424))
                 .border(
                     width = 1.dp,
                     brush = Brush.horizontalGradient(
                         listOf(
-                            accentColor.copy(alpha = 0.4f),
+                            accentColor.copy(alpha = 0.45f),
                             Color.White.copy(alpha = 0.08f)
                         )
                     ),
@@ -278,8 +280,8 @@ fun LauncherTabContent(
                     )
                 },
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF131728),
-                    unfocusedContainerColor = Color(0xFF101322),
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
                     focusedTextColor = Color.White,
@@ -287,15 +289,14 @@ fun LauncherTabContent(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
-                    .clip(RoundedCornerShape(14.dp)),
+                    .height(50.dp),
                 singleLine = true,
                 leadingIcon = {
                     Box(
                         modifier = Modifier
                             .size(28.dp)
                             .clip(CircleShape)
-                            .background(accentColor.copy(alpha = 0.15f)),
+                            .background(accentColor.copy(alpha = 0.16f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -316,8 +317,8 @@ fun LauncherTabContent(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(accentColor.copy(alpha = 0.18f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .background(accentColor.copy(alpha = 0.2f))
+                                    .padding(horizontal = 7.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = "${filteredApps.size}",
@@ -396,32 +397,40 @@ fun LauncherTabContent(
                 }
             }
         } else {
-            // Unified Grid using span support to build clean Sections (Favorites vs Regular Apps)
+            // High-performance Lazy Grid with unique item keys and contentType
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(bottom = 8.dp),
+                contentPadding = PaddingValues(start = 2.dp, end = 2.dp, top = 2.dp, bottom = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // Section: Favorites (Show only when not searching)
                 if (favoriteApps.isNotEmpty() && searchQuery.isEmpty()) {
-                    item(span = { GridItemSpan(4) }) {
+                    item(span = { GridItemSpan(4) }, key = "header_favorites") {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
+                            modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFFFD600))
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                                    .size(20.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFFFFD54F).copy(alpha = 0.18f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Star,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFFD54F),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(7.dp))
                             Text(
                                 text = stringResource(id = R.string.overlay_favorites).uppercase(),
-                                color = Color(0xFFFFD600),
-                                fontSize = 11.5.sp,
+                                color = Color(0xFFFFD54F),
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.3.sp
                             )
@@ -429,13 +438,13 @@ fun LauncherTabContent(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFFFFD600).copy(alpha = 0.15f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .background(Color(0xFFFFD54F).copy(alpha = 0.15f))
+                                    .padding(horizontal = 6.dp, vertical = 1.5.dp)
                             ) {
                                 Text(
                                     text = "${favoriteApps.size}",
-                                    color = Color(0xFFFFD600),
-                                    fontSize = 10.5.sp,
+                                    color = Color(0xFFFFD54F),
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -447,7 +456,7 @@ fun LauncherTabContent(
                                     .background(
                                         Brush.horizontalGradient(
                                             listOf(
-                                                Color(0xFFFFD600).copy(alpha = 0.4f),
+                                                Color(0xFFFFD54F).copy(alpha = 0.35f),
                                                 Color.Transparent
                                             )
                                         )
@@ -456,7 +465,11 @@ fun LauncherTabContent(
                         }
                     }
 
-                    items(favoriteApps) { app ->
+                    items(
+                        items = favoriteApps,
+                        key = { "fav_${it.packageName}" },
+                        contentType = { "app" }
+                    ) { app ->
                         AppGridItem(
                             app = app,
                             isFavorite = true,
@@ -475,28 +488,39 @@ fun LauncherTabContent(
                         )
                     }
 
-                    item(span = { GridItemSpan(4) }) {
-                        Spacer(modifier = Modifier.height(2.dp))
+                    item(span = { GridItemSpan(4) }, key = "spacer_favorites") {
+                        Spacer(modifier = Modifier.height(4.dp))
                     }
                 }
 
                 // Section: Regular or Filtered Apps
-                item(span = { GridItemSpan(4) }) {
+                item(
+                    span = { GridItemSpan(4) },
+                    key = if (searchQuery.isNotEmpty()) "header_search" else "header_regular"
+                ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
+                        modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(accentColor)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
+                                .size(20.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(accentColor.copy(alpha = 0.18f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (searchQuery.isNotEmpty()) Icons.Default.Search else Icons.Default.Apps,
+                                contentDescription = null,
+                                tint = accentColor,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(7.dp))
                         Text(
                             text = if (searchQuery.isNotEmpty()) stringResource(id = R.string.overlay_search_results).uppercase() else stringResource(id = R.string.overlay_all_apps).uppercase(),
                             color = accentColor,
-                            fontSize = 11.5.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.3.sp
                         )
@@ -505,12 +529,12 @@ fun LauncherTabContent(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(accentColor.copy(alpha = 0.15f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .padding(horizontal = 6.dp, vertical = 1.5.dp)
                         ) {
                             Text(
                                 text = "${regularApps.size}",
                                 color = accentColor,
-                                fontSize = 10.5.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -522,7 +546,7 @@ fun LauncherTabContent(
                                 .background(
                                     Brush.horizontalGradient(
                                         listOf(
-                                            accentColor.copy(alpha = 0.4f),
+                                            accentColor.copy(alpha = 0.35f),
                                             Color.Transparent
                                         )
                                     )
@@ -531,7 +555,11 @@ fun LauncherTabContent(
                     }
                 }
 
-                items(regularApps) { app ->
+                items(
+                    items = regularApps,
+                    key = { "app_${it.packageName}" },
+                    contentType = { "app" }
+                ) { app ->
                     AppGridItem(
                         app = app,
                         isFavorite = false,

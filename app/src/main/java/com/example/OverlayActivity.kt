@@ -6,6 +6,8 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.os.Build
@@ -24,6 +26,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -53,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -425,11 +429,11 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                         brush = Brush.verticalGradient(
                             listOf(
                                 accentColor.copy(alpha = if (isMaximized) 0.85f else 0.95f),
-                                accentColor.copy(alpha = 0.3f),
-                                Color.White.copy(alpha = 0.06f)
+                                accentColor.copy(alpha = 0.35f),
+                                Color.White.copy(alpha = 0.08f)
                             )
                         ),
-                        shape = RoundedCornerShape(if (isMaximized && selectedTab == OrbitTab.BROWSER) 8.dp else 24.dp)
+                        shape = RoundedCornerShape(if (isMaximized && selectedTab == OrbitTab.BROWSER) 8.dp else 26.dp)
                     )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -437,8 +441,8 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                     ) {
                         // Prevent dismissal when clicking inside the card
                     },
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0C0F1A)),
-                shape = RoundedCornerShape(if (isMaximized && selectedTab == OrbitTab.BROWSER) 8.dp else 24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0C101D)),
+                shape = RoundedCornerShape(if (isMaximized && selectedTab == OrbitTab.BROWSER) 8.dp else 26.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 24.dp)
             ) {
                 Box(
@@ -447,10 +451,10 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                         .background(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    accentColor.copy(alpha = 0.08f),
+                                    accentColor.copy(alpha = 0.12f),
                                     Color.Transparent
                                 ),
-                                radius = 900f
+                                radius = 950f
                             )
                         )
                 ) {
@@ -469,7 +473,7 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                             exit = fadeOut() + shrinkVertically()
                         ) {
                             Column {
-                                // Prominent Orbit Launchpad Header
+                                // Sleek Minimalist Orbit Header
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -482,75 +486,46 @@ fun OverlayScreen(onDismiss: () -> Unit) {
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .size(38.dp)
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(
-                                                    Brush.radialGradient(
-                                                        listOf(
-                                                            accentColor.copy(alpha = 0.35f),
-                                                            accentColor.copy(alpha = 0.12f)
-                                                        )
-                                                    )
-                                                )
-                                                .border(1.2.dp, accentColor.copy(alpha = 0.6f), RoundedCornerShape(12.dp)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Image(
-                                                painter = painterResource(id = R.drawable.ic_orbit_neon),
-                                                contentDescription = "Orbit",
-                                                modifier = Modifier.size(24.dp)
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column {
-                                            Text(
-                                                text = stringResource(R.string.overlay_launchpad),
-                                                color = Color.White,
-                                                fontSize = 18.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                letterSpacing = 0.5.sp
-                                            )
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(6.dp)
-                                                        .clip(CircleShape)
-                                                        .background(Color(0xFF00E676))
-                                                )
-                                                Spacer(modifier = Modifier.width(5.dp))
-                                                Text(
-                                                    text = "FLOATING OVERLAY ACTIVE",
-                                                    color = Color.White.copy(alpha = 0.55f),
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    letterSpacing = 0.8.sp
-                                                )
-                                            }
-                                        }
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(accentColor)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = stringResource(R.string.app_name),
+                                            color = Color.White,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.5.sp
+                                        )
                                     }
 
                                     // Window controls: Maximize/Restore & Close
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        IconButton(
-                                            onClick = { isMaximized = !isMaximized },
-                                            modifier = Modifier
-                                                .size(34.dp)
-                                                .clip(CircleShape)
-                                                .background(Color.White.copy(alpha = 0.08f))
-                                                .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                                        ) {
-                                            Icon(
-                                                imageVector = if (isMaximized) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                                                contentDescription = stringResource(if (isMaximized) R.string.overlay_restore else R.string.overlay_maximize),
-                                                tint = Color.White.copy(alpha = 0.85f),
-                                                modifier = Modifier.size(16.dp)
-                                            )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        if (selectedTab == OrbitTab.BROWSER) {
+                                            IconButton(
+                                                onClick = { isMaximized = !isMaximized },
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color.White.copy(alpha = 0.08f))
+                                                    .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isMaximized) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                                    contentDescription = stringResource(if (isMaximized) R.string.overlay_restore else R.string.overlay_maximize),
+                                                    tint = Color.White.copy(alpha = 0.85f),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
                                         }
-                                        Spacer(modifier = Modifier.width(6.dp))
                                         IconButton(
                                             onClick = { animateDismiss() },
                                             modifier = Modifier
-                                                .size(34.dp)
+                                                .size(32.dp)
                                                 .clip(CircleShape)
                                                 .background(Color.White.copy(alpha = 0.08f))
                                                 .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
@@ -838,8 +813,8 @@ fun AppGridItem(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.88f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
+        targetValue = if (isPressed) 0.90f else 1f,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = 800f),
         label = "AppGridItemScale"
     )
 
@@ -861,22 +836,22 @@ fun AppGridItem(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // High-tech Squircle App Icon Container
+            // Modern Cyber-Squircle App Icon Container
             Box(
                 modifier = Modifier
-                    .size(54.dp)
+                    .size(56.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(
                         brush = Brush.verticalGradient(
                             colors = if (isFavorite) {
                                 listOf(
-                                    Color(0xFF222840),
-                                    Color(0xFF121524)
+                                    Color(0xFF262114),
+                                    Color(0xFF15120B)
                                 )
                             } else {
                                 listOf(
-                                    Color(0xFF1B2032),
-                                    Color(0xFF101320)
+                                    Color(0xFF181E30),
+                                    Color(0xFF0F1220)
                                 )
                             }
                         )
@@ -886,15 +861,15 @@ fun AppGridItem(
                         brush = if (isFavorite) {
                             Brush.verticalGradient(
                                 listOf(
-                                    Color(0xFFFFD600),
-                                    Color(0xFFFFB300).copy(alpha = 0.4f)
+                                    Color(0xFFFFD54F),
+                                    Color(0xFFFFB300).copy(alpha = 0.35f)
                                 )
                             )
                         } else {
                             Brush.verticalGradient(
                                 listOf(
-                                    Color.White.copy(alpha = 0.14f),
-                                    Color.White.copy(alpha = 0.03f)
+                                    Color.White.copy(alpha = 0.16f),
+                                    Color.White.copy(alpha = 0.04f)
                                 )
                             )
                         },
@@ -903,23 +878,48 @@ fun AppGridItem(
                     .padding(8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (app.icon != null) {
-                    AndroidView(
-                        factory = { ctx ->
-                            ImageView(ctx).apply {
-                                scaleType = ImageView.ScaleType.FIT_CENTER
-                            }
-                        },
-                        update = { imageView ->
-                            imageView.setImageDrawable(app.icon)
-                        },
+                if (app.iconBitmap != null) {
+                    Image(
+                        bitmap = app.iconBitmap,
+                        contentDescription = app.label,
                         modifier = Modifier.fillMaxSize()
                     )
+                } else if (app.icon != null) {
+                    val fallbackBitmap = remember(app.packageName) {
+                        try {
+                            val bmp = Bitmap.createBitmap(128, 128, Bitmap.Config.ARGB_8888)
+                            val canvas = Canvas(bmp)
+                            app.icon.setBounds(0, 0, 128, 128)
+                            app.icon.draw(canvas)
+                            bmp.asImageBitmap()
+                        } catch (e: Throwable) {
+                            null
+                        }
+                    }
+                    if (fallbackBitmap != null) {
+                        Image(
+                            bitmap = fallbackBitmap,
+                            contentDescription = app.label,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        AndroidView(
+                            factory = { ctx ->
+                                ImageView(ctx).apply {
+                                    scaleType = ImageView.ScaleType.FIT_CENTER
+                                }
+                            },
+                            update = { imageView ->
+                                imageView.setImageDrawable(app.icon)
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 } else {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.Gray.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .background(Color.Gray.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
                     )
                 }
             }
@@ -930,11 +930,11 @@ fun AppGridItem(
             Text(
                 text = app.label,
                 fontSize = 11.5.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = if (isFavorite) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
-                color = if (isFavorite) Color.White else Color(0xFFD6DBE8),
+                color = if (isFavorite) Color.White else Color(0xFFDCE2F0),
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -944,14 +944,14 @@ fun AppGridItem(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .offset(x = 4.dp, y = (-4).dp)
-                .size(22.dp)
+                .size(24.dp)
                 .clip(CircleShape)
                 .background(
-                    if (isFavorite) Color(0xFF262111) else Color(0xFF161A28)
+                    if (isFavorite) Color(0xFF2E2612) else Color(0xFF141824)
                 )
                 .border(
                     1.dp,
-                    if (isFavorite) Color(0xFFFFD600).copy(alpha = 0.8f) else Color.White.copy(alpha = 0.12f),
+                    if (isFavorite) Color(0xFFFFD54F).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.14f),
                     CircleShape
                 )
                 .clickable { onToggleFavorite() },
@@ -960,8 +960,8 @@ fun AppGridItem(
             Icon(
                 imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
                 contentDescription = "Favorite",
-                tint = if (isFavorite) Color(0xFFFFD600) else Color(0xFF7A849C),
-                modifier = Modifier.size(13.dp)
+                tint = if (isFavorite) Color(0xFFFFD54F) else Color(0xFF7E8A9F),
+                modifier = Modifier.size(13.5.dp)
             )
         }
     }

@@ -3,7 +3,11 @@ package com.example
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.drawable.Drawable
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import java.util.Calendar
 
 data class AppInfo(
@@ -11,7 +15,8 @@ data class AppInfo(
     val activityName: String,
     val label: String,
     val usageTimeMs: Long,
-    val icon: Drawable?
+    val icon: Drawable?,
+    val iconBitmap: ImageBitmap? = null
 )
 
 object AppCache {
@@ -46,6 +51,15 @@ object AppCache {
         }
     }
 
+    /**
+     * Clears all in-memory bitmaps and loaded cached apps to release app RAM immediately.
+     */
+    fun clearMemoryCache() {
+        synchronized(this) {
+            cachedApps = null
+        }
+    }
+
     private fun loadLaunchableApps(context: Context): List<AppInfo> {
         val pm = context.packageManager
         val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
@@ -70,7 +84,20 @@ object AppCache {
                 null
             }
 
-            appsList.add(AppInfo(packageName, activityName, label, usageTime, icon))
+            val iconBitmap = try {
+                icon?.let { d ->
+                    val size = 128
+                    val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+                    val canvas = Canvas(bmp)
+                    d.setBounds(0, 0, size, size)
+                    d.draw(canvas)
+                    bmp.asImageBitmap()
+                }
+            } catch (e: Throwable) {
+                null
+            }
+
+            appsList.add(AppInfo(packageName, activityName, label, usageTime, icon, iconBitmap))
         }
         return appsList
     }
