@@ -104,6 +104,10 @@
     <string name="theme_desc">اختر لون النيون المفضل للفقاعة العائمة وشاشة التحكم</string>
     <string name="bubble_size_title">تخصيص حجم الفقاعة</string>
     <string name="bubble_size_desc">تعديل حجم الفقاعة العائمة ديناميكياً على الشاشة (من 30 إلى 80)</string>
+    <string name="cache_management_title">ذاكرة التخزين المؤقت</string>
+    <string name="cache_management_subtitle">الحجم: %1$s · مسح تلقائي عند 100 ميجابايت</string>
+    <string name="clear_cache_button">مسح</string>
+    <string name="cache_cleared_toast">تم تحرير %1$s من الذاكرة المؤقتة</string>
     <string name="settings_permissions">الإعدادات وأذونات التطبيق</string>
     <string name="display_over_apps">الظهور فوق التطبيقات الأخرى</string>
     <string name="display_over_apps_desc">مطلوب لعرض فقاعة الإجراءات السريعة فوق الشاشات النشطة.</string>

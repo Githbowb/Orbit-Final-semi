@@ -96,7 +96,7 @@
     <string name="tool_calc_name">Calculator</string>
     <string name="tool_ocr_name">Camera OCR</string>
     <string name="tool_dial_name">Speed Dial</string>
-    <string name="tool_launcher_name">App Launchpad</string>
+    <string name="tool_launcher_name">App Launcher</string>
     <string name="tool_scanner_name">Screen Scanner</string>
 
     <!-- Settings Tab -->
@@ -104,6 +104,10 @@
     <string name="theme_desc">Select your preferred neon accent color for the floating bubble and dashboard overlay</string>
     <string name="bubble_size_title">Bubble Size Customization</string>
     <string name="bubble_size_desc">Adjust the floating bubble size dynamically on the screen (30dp to 80dp)</string>
+    <string name="cache_management_title">Cache &amp; Storage</string>
+    <string name="cache_management_subtitle">Size: %1$s · Auto-clears at 100 MB</string>
+    <string name="clear_cache_button">Clear</string>
+    <string name="cache_cleared_toast">Freed %1$s of cache</string>
     <string name="settings_permissions">Settings &amp; App Permissions</string>
     <string name="display_over_apps">Display Over Other Apps</string>
     <string name="display_over_apps_desc">Required to render the quick action floating bubble on top of active screens.</string>

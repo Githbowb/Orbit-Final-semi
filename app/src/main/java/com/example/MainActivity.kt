@@ -99,8 +99,10 @@ import com.example.data.ArtworkEntry
 import com.example.data.OrbitDatabase
 import com.example.data.OrbitRepository
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
@@ -3572,6 +3574,75 @@ fun SettingsTabContent(
                                 inactiveTrackColor = Color.White.copy(alpha = 0.1f)
                             )
                         )
+                    }
+                }
+            )
+
+            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+
+            // Cache & Storage Management
+            var cacheSizeFormatted by remember { mutableStateOf(CacheManager.getFormattedCacheSize(context)) }
+            var isClearingCache by remember { mutableStateOf(false) }
+
+            LaunchedEffect(Unit) {
+                withContext(Dispatchers.IO) {
+                    val size = CacheManager.getFormattedCacheSize(context)
+                    withContext(Dispatchers.Main) {
+                        cacheSizeFormatted = size
+                    }
+                }
+            }
+
+            SetupOptionRow(
+                title = stringResource(id = R.string.cache_management_title),
+                subtitle = stringResource(id = R.string.cache_management_subtitle, cacheSizeFormatted),
+                icon = Icons.Default.CleaningServices,
+                iconColor = signalOrange,
+                iconBgColor = signalOrange.copy(alpha = 0.15f),
+                trailingContent = {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(signalOrange.copy(alpha = if (isClearingCache) 0.1f else 0.2f))
+                            .border(
+                                1.dp,
+                                signalOrange.copy(alpha = if (isClearingCache) 0.3f else 0.8f),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .clickable(enabled = !isClearingCache) {
+                                isClearingCache = true
+                                CacheManager.clearCacheNow(context) { freedMb ->
+                                    isClearingCache = false
+                                    cacheSizeFormatted = CacheManager.getFormattedCacheSize(context)
+                                    val freedStr = if (freedMb < 1.0) {
+                                        String.format(Locale.US, "%.0f KB", freedMb * 1024.0)
+                                    } else {
+                                        String.format(Locale.US, "%.1f MB", freedMb)
+                                    }
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.cache_cleared_toast, freedStr),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isClearingCache) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                color = signalOrange,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(
+                                text = stringResource(id = R.string.clear_cache_button),
+                                color = signalOrange,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             )

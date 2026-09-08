@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -84,21 +85,29 @@ fun TabSwitcherBar(
     Row(
         modifier = Modifier
             .fillOuterWidth()
-            .height(54.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .height(58.dp)
+            .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFF090D18))
-            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         activeTabs.forEach { (tab, icon, label, _) ->
             val isSelected = selectedTab == tab
+            val displayLabel = remember(label) {
+                if (label.contains(" ") && !label.contains("\n")) {
+                    label.replaceFirst(" ", "\n")
+                } else {
+                    label
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(10.dp))
                     .background(
                         if (isSelected) {
                             Brush.verticalGradient(
@@ -114,10 +123,10 @@ fun TabSwitcherBar(
                     .border(
                         1.dp,
                         if (isSelected) accentColor.copy(alpha = 0.65f) else Color.Transparent,
-                        RoundedCornerShape(12.dp)
+                        RoundedCornerShape(10.dp)
                     )
                     .clickable { onTabSelected(tab) }
-                    .padding(horizontal = 2.dp, vertical = 4.dp),
+                    .padding(horizontal = 1.dp, vertical = 2.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -129,16 +138,20 @@ fun TabSwitcherBar(
                         imageVector = icon,
                         contentDescription = label,
                         tint = if (isSelected) accentColor else TextSecondary.copy(alpha = 0.65f),
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = label,
-                        fontSize = 10.5.sp,
+                        text = displayLabel,
+                        fontSize = 9.sp,
+                        lineHeight = 10.5.sp,
+                        letterSpacing = (-0.2).sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                         color = if (isSelected) Color.White else TextSecondary.copy(alpha = 0.85f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        softWrap = true,
+                        overflow = TextOverflow.Clip
                     )
                 }
             }

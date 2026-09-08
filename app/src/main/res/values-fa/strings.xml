@@ -104,6 +104,10 @@
     <string name="theme_desc">رنگ نئون مورد علاقه خود را برای حباب شناور و داشبورد انتخاب کنید</string>
     <string name="bubble_size_title">سفارشی‌سازی اندازه حباب</string>
     <string name="bubble_size_desc">تغییر پویای اندازه حباب شناور روی صفحه (۳۰ تا ۸۰)</string>
+    <string name="cache_management_title">حافظه پنهان و موقت</string>
+    <string name="cache_management_subtitle">اندازه: %1$s · پاک‌سازی خودکار در ۱۰۰ مگابایت</string>
+    <string name="clear_cache_button">پاک‌سازی</string>
+    <string name="cache_cleared_toast">%1$s از حافظه پنهان آزاد شد</string>
     <string name="settings_permissions">تنظیمات و مجوزهای برنامه</string>
     <string name="display_over_apps">نمایش روی سایر برنامه‌ها</string>
     <string name="display_over_apps_desc">برای نمایش حباب اقدام سریع روی سایر برنامه‌ها الزامی است.</string>

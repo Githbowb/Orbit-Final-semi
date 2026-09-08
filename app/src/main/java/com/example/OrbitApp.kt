@@ -16,5 +16,8 @@ class OrbitApp : Application() {
         super.onCreate()
         // Hand the application context to OcrManager so it can initialize.
         OcrManager.setApplicationContext(this)
+
+        // Monitor cache size asynchronously on app startup and auto-clear if >= 100MB
+        CacheManager.checkAndAutoClearCache(this)
     }
 }

@@ -494,15 +494,21 @@ fun FloatingWebViewContent(
                             },
                             onInterceptDownload = { url, filename ->
                                 (ctx as? Activity)?.runOnUiThread {
-                                    triggerDownloadConfirmation(
-                                        url,
-                                        webView.settings.userAgentString,
-                                        null,
-                                        null,
-                                        filename,
-                                        webView.url,
-                                        webView
-                                    )
+                                    val isDirectFile = isDownloadableFileUrl(url)
+                                    if (isDirectFile || url.startsWith("blob:") || url.startsWith("data:")) {
+                                        triggerDownloadConfirmation(
+                                            url,
+                                            webView.settings.userAgentString,
+                                            null,
+                                            null,
+                                            filename,
+                                            webView.url,
+                                            webView
+                                        )
+                                    } else {
+                                        // Standard web link (e.g. AI chat search result), navigate to page
+                                        webView.loadUrl(url)
+                                    }
                                 }
                             },
                             onImageDetectedAtPoint = { json ->
@@ -527,15 +533,20 @@ fun FloatingWebViewContent(
                             },
                             onFallbackHttpDownload = { url, filename ->
                                 (ctx as? Activity)?.runOnUiThread {
-                                    triggerDownloadConfirmation(
-                                        url,
-                                        webView.settings.userAgentString,
-                                        null,
-                                        null,
-                                        filename,
-                                        webView.url,
-                                        webView
-                                    )
+                                    val isDirectFile = isDownloadableFileUrl(url)
+                                    if (isDirectFile || url.startsWith("blob:") || url.startsWith("data:")) {
+                                        triggerDownloadConfirmation(
+                                            url,
+                                            webView.settings.userAgentString,
+                                            null,
+                                            null,
+                                            filename,
+                                            webView.url,
+                                            webView
+                                        )
+                                    } else {
+                                        webView.loadUrl(url)
+                                    }
                                 }
                             },
                             onMediaScanned = { json ->
@@ -1971,64 +1982,51 @@ const val INJECTED_DOWNLOAD_HOOK = """
     function findMediaForButton(btn) {
         if (!btn) return null;
 
-        // 1. Direct parent link
-        var parentLink = btn.closest('a');
+        // 1. Direct parent link ONLY if it actually has download attribute or points to media
+        var parentLink = btn.closest ? btn.closest('a') : null;
         if (parentLink && parentLink.href) {
             var ph = parentLink.href;
-            if (ph.indexOf('#') !== 0 && ph.indexOf('javascript:') !== 0) {
-                return { url: ph, name: parentLink.getAttribute('download') || parentLink.download || 'image' };
+            var isFile = /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|rar|7z|tar(\.gz)?|gz|mp3|mp4|m4a|wav)(\?.*)?$/i.test(ph);
+            var hasDownload = parentLink.hasAttribute('download');
+            if (hasDownload || ph.indexOf('blob:') === 0 || ph.indexOf('data:') === 0 || isFile) {
+                return { url: ph, name: parentLink.getAttribute('download') || parentLink.download || 'download' };
             }
+            // If parent link is a normal web URL, it is NOT media
         }
 
         // 2. Inside modal, lightbox or preview dialog
-        var modal = btn.closest('[role="dialog"], .modal, .lightbox, .fullscreen-preview, [data-testid*="modal"], [aria-modal="true"]');
+        var modal = btn.closest ? btn.closest('[role="dialog"], .modal, .lightbox, .fullscreen-preview, [data-testid*="modal"], [aria-modal="true"]') : null;
         if (modal) {
             var mm = extractMediaFromElement(modal);
             if (mm) return mm;
         }
 
-        // 3. Message container / Conversation turn (ChatGPT, Claude, Gemini, Poe, DeepSeek)
-        var messageContainer = btn.closest('article, [data-message-author-role], [data-testid*="conversation"], .message, [class*="message"], .group, .card, [class*="generation"]');
+        // 3. Image card or generation turn
+        var card = btn.closest ? btn.closest('figure, .image-card, .generated-image, [class*="image-wrapper"], [data-testid*="image"]') : null;
+        if (card) {
+            var cm = extractMediaFromElement(card);
+            if (cm) return cm;
+        }
+
+        // 4. Message container / Conversation turn (ChatGPT, Claude, Gemini, Poe, DeepSeek)
+        var messageContainer = btn.closest ? btn.closest('article, [data-message-author-role], [data-testid*="conversation"], .message, [class*="message"], .group') : null;
         if (messageContainer) {
             var mcMedia = extractMediaFromElement(messageContainer);
             if (mcMedia) return mcMedia;
         }
 
-        // 4. Traverse parent hierarchy up to 6 levels
+        // 5. Immediate parent hierarchy up to 2 levels
         var curr = btn.parentElement;
-        for (var depth = 0; depth < 6 && curr && curr !== document.body && curr !== document.documentElement; depth++) {
+        for (var depth = 0; depth < 2 && curr && curr !== document.body && curr !== document.documentElement; depth++) {
             var pMedia = extractMediaFromElement(curr);
             if (pMedia) return pMedia;
             curr = curr.parentElement;
         }
 
-        // 5. Nearest visible image on screen
-        try {
-            var btnRect = btn.getBoundingClientRect();
-            var allImages = document.querySelectorAll('img, canvas');
-            var closestMedia = null;
-            var closestDist = 999999;
-            for (var i = 0; i < allImages.length; i++) {
-                var mediaEl = allImages[i];
-                var r = mediaEl.getBoundingClientRect();
-                if (r.width > 60 && r.height > 60) {
-                    var dist = Math.hypot((r.left + r.width/2) - (btnRect.left + btnRect.width/2), (r.top + r.height/2) - (btnRect.top + btnRect.height/2));
-                    if (dist < closestDist) {
-                        closestDist = dist;
-                        closestMedia = mediaEl;
-                    }
-                }
-            }
-            if (closestMedia && closestDist < 900) {
-                var nearMedia = extractMediaFromElement(closestMedia);
-                if (nearMedia) return nearMedia;
-            }
-        } catch(e) {}
-
         return null;
     }
 
-    // 3. Intercept programmatic anchor clicks
+    // 3. Intercept programmatic anchor clicks for actual downloads
     var origClick = HTMLAnchorElement.prototype.click;
     HTMLAnchorElement.prototype.click = function() {
         try {
@@ -2036,7 +2034,7 @@ const val INJECTED_DOWNLOAD_HOOK = """
             var download = this.getAttribute('download') || this.download;
             var hasDownload = this.hasAttribute('download') || (download !== null && download !== undefined && download !== '');
             var isBlobOrData = href && (href.indexOf('blob:') === 0 || href.indexOf('data:') === 0);
-            var isMediaExt = href && /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|tar|gz|mp3|mp4|m4a|wav|csv|txt|json|py|js|ts|html|css|md|java|c|cpp|sh|docx|xlsx|pptx)(\?.*)?${'$'}/i.test(href);
+            var isMediaExt = href && /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|rar|7z|tar(\.gz)?|gz|iso|dmg|bin|epub|mp3|mp4|m4a|wav|docx|xlsx|pptx)(\?.*)?${'$'}/i.test(href);
 
             if (isBlobOrData || hasDownload || isMediaExt) {
                 if (href && href.indexOf('#') !== 0 && href.indexOf('javascript:') !== 0) {
@@ -2057,7 +2055,7 @@ const val INJECTED_DOWNLOAD_HOOK = """
                 var download = this.getAttribute('download') || this.download;
                 var hasDownload = this.hasAttribute('download') || (download !== null && download !== undefined && download !== '');
                 var isBlobOrData = href && (href.indexOf('blob:') === 0 || href.indexOf('data:') === 0);
-                var isMediaExt = href && /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|tar|gz|mp3|mp4|m4a|wav|csv|txt|json|py|js|ts|html|css|md|java|c|cpp|sh|docx|xlsx|pptx)(\?.*)?${'$'}/i.test(href);
+                var isMediaExt = href && /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|rar|7z|tar(\.gz)?|gz|iso|dmg|bin|epub|mp3|mp4|m4a|wav|docx|xlsx|pptx)(\?.*)?${'$'}/i.test(href);
 
                 if (isBlobOrData || hasDownload || isMediaExt) {
                     if (href && href.indexOf('#') !== 0 && href.indexOf('javascript:') !== 0) {
@@ -2070,63 +2068,79 @@ const val INJECTED_DOWNLOAD_HOOK = """
         return origDispatch.apply(this, arguments);
     };
 
-    // 5. Intercept user clicks on download buttons and chat controls (English & Arabic)
+    // 5. Intercept user clicks on real download buttons only (never normal links or search results)
     document.addEventListener('click', function(e) {
         try {
             var el = e.target;
-            while (el && el !== document.body && el !== document.documentElement) {
-                var href = el.href || (el.getAttribute && el.getAttribute('href'));
-                var download = el.getAttribute && el.getAttribute('download');
-                var hasDownloadAttr = el.hasAttribute && el.hasAttribute('download');
-                var isBlobOrData = href && (href.indexOf('blob:') === 0 || href.indexOf('data:') === 0);
-                var isMediaExt = href && /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|tar|gz|mp3|mp4|m4a|wav|csv|txt|json|py|js|ts|html|css|md|java|c|cpp|sh|docx|xlsx|pptx)(\?.*)?${'$'}/i.test(href);
+            if (!el) return;
 
-                if (isBlobOrData || (hasDownloadAttr && href && href.indexOf('#') !== 0 && href.indexOf('javascript:') !== 0) || isMediaExt) {
-                    triggerNativeDownload(href, download || '');
+            // Priority 1: Check if clicked element is an anchor or inside an anchor
+            var anchor = el.closest ? el.closest('a') : null;
+            if (anchor && anchor.href) {
+                var h = anchor.href;
+                var hasDl = anchor.hasAttribute('download');
+                var isBlobOrData = h.indexOf('blob:') === 0 || h.indexOf('data:') === 0;
+                var isDirectMedia = /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|rar|7z|tar(\.gz)?|gz|iso|dmg|bin|epub|mp3|mp4|m4a|wav|docx|xlsx|pptx)(\?.*)?${'$'}/i.test(h);
+
+                if (hasDl || isBlobOrData || isDirectMedia) {
+                    triggerNativeDownload(h, anchor.getAttribute('download') || anchor.download || '');
                     e.preventDefault();
                     e.stopPropagation();
                     return;
                 }
+                // It is a regular web hyperlink (search result link, website, AI chat link)!
+                // NEVER intercept as a download! Allow standard browser navigation!
+                return;
+            }
 
-                var ariaLabel = (el.getAttribute && (el.getAttribute('aria-label') || el.getAttribute('title') || '')) || '';
-                var testId = (el.getAttribute && el.getAttribute('data-testid') || '') || '';
-                var className = (typeof el.className === 'string' ? el.className : '') || '';
-                var textContent = (el.innerText || el.textContent || '').trim().toLowerCase();
+            // Priority 2: Only check if clicked element is an interactive button
+            var isButtonLike = el.tagName === 'BUTTON' ||
+                               (el.tagName === 'INPUT' && (el.type === 'button' || el.type === 'submit')) ||
+                               el.getAttribute('role') === 'button' ||
+                               (el.closest && el.closest('button, [role="button"]'));
 
-                var isDownloadBtn = /download|save|export|get\s*image|تحميل|تنزيل|حفظ|تصدير/i.test(ariaLabel) ||
-                                    /download|save|export|تحميل|تنزيل|حفظ/i.test(testId) ||
-                                    /download-btn|download-button|btn-download|save-button|btn-save|download/i.test(className) ||
-                                    /download|export|save|تحميل|تنزيل|حفظ|تصدير/i.test(textContent);
+            if (!isButtonLike) return;
 
-                if (!isDownloadBtn) {
-                    var svg = el.querySelector && el.querySelector('svg');
-                    if (svg) {
-                        var svgInfo = (svg.getAttribute('class') || '') + ' ' + (svg.getAttribute('aria-label') || '') + ' ' + (svg.getAttribute('data-icon') || '');
-                        if (/download|save|export|arrow-down|lucide-download|fa-download/i.test(svgInfo)) {
-                            isDownloadBtn = true;
-                        }
+            var btn = (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button') ? el : (el.closest ? el.closest('button, [role="button"]') : el);
+            if (!btn) return;
+
+            var ariaLabel = (btn.getAttribute('aria-label') || btn.getAttribute('title') || '').trim();
+            var testId = (btn.getAttribute('data-testid') || '').trim();
+            var className = (typeof btn.className === 'string' ? btn.className : '').trim();
+            var textContent = (btn.innerText || btn.textContent || '').trim();
+
+            var dlRegex = /(^|\s)(download|save\s*image|download\s*image|export\s*image|download\s*file|تحميل|تنزيل|حفظ\s*الصورة|تصدير)(\s|${'$'})/i;
+            var isDownloadBtn = (ariaLabel && dlRegex.test(ariaLabel)) ||
+                                (testId && dlRegex.test(testId)) ||
+                                /(download-btn|download-button|btn-download|save-button|btn-save)/i.test(className) ||
+                                (textContent.length <= 30 && dlRegex.test(textContent));
+
+            if (!isDownloadBtn) {
+                var svg = btn.querySelector ? btn.querySelector('svg') : null;
+                if (svg) {
+                    var svgInfo = (svg.getAttribute('class') || '') + ' ' + (svg.getAttribute('aria-label') || '') + ' ' + (svg.getAttribute('data-icon') || '');
+                    if (/download|arrow-down|lucide-download|fa-download/i.test(svgInfo)) {
+                        isDownloadBtn = true;
                     }
                 }
+            }
 
-                if (isDownloadBtn && !el.href) {
-                    var media = findMediaForButton(el);
-                    if (media && media.url) {
-                        triggerNativeDownload(media.url, media.name || '');
-                        e.preventDefault();
-                        e.stopPropagation();
-                        return;
-                    }
+            if (isDownloadBtn) {
+                var media = findMediaForButton(btn);
+                if (media && media.url) {
+                    triggerNativeDownload(media.url, media.name || '');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
                 }
-
-                el = el.parentElement;
             }
         } catch(err) {}
     }, true);
 
-    // 6. Intercept window.open
+    // 6. Intercept window.open for direct downloadable files only
     var origOpen = window.open;
     window.open = function(url) {
-        if (url && (url.indexOf('blob:') === 0 || url.indexOf('data:') === 0 || /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|tar|gz|mp3|mp4|m4a|wav|csv|txt|json|py|js|ts|html|css|md|java|c|cpp|sh|docx|xlsx|pptx)(\?.*)?${'$'}/i.test(url))) {
+        if (url && (url.indexOf('blob:') === 0 || url.indexOf('data:') === 0 || /\.(png|jpe?g|webp|gif|svg|bmp|pdf|zip|apk|rar|7z|tar(\.gz)?|gz|iso|dmg|bin|epub|mp3|mp4|m4a|wav|docx|xlsx|pptx)(\?.*)?${'$'}/i.test(url))) {
             triggerNativeDownload(url, '');
             return null;
         }
@@ -2220,6 +2234,20 @@ fun detectRealExtensionAndMime(
     return Pair("bin", "application/octet-stream")
 }
 
+fun isDownloadableFileUrl(url: String): Boolean {
+    if (url.startsWith("blob:") || url.startsWith("data:")) return true
+    val clean = url.substringBefore('?').substringBefore('#').lowercase()
+    return clean.endsWith(".apk") || clean.endsWith(".zip") || clean.endsWith(".pdf") ||
+        clean.endsWith(".rar") || clean.endsWith(".7z") || clean.endsWith(".tar.gz") ||
+        clean.endsWith(".tar") || clean.endsWith(".gz") || clean.endsWith(".iso") ||
+        clean.endsWith(".dmg") || clean.endsWith(".bin") || clean.endsWith(".epub") ||
+        clean.endsWith(".png") || clean.endsWith(".jpg") || clean.endsWith(".jpeg") ||
+        clean.endsWith(".webp") || clean.endsWith(".gif") || clean.endsWith(".bmp") ||
+        clean.endsWith(".svg") || clean.endsWith(".mp3") || clean.endsWith(".m4a") ||
+        clean.endsWith(".mp4") || clean.endsWith(".wav") || clean.endsWith(".docx") ||
+        clean.endsWith(".xlsx") || clean.endsWith(".pptx")
+}
+
 fun resolveDownloadFilename(
     url: String,
     contentDisposition: String? = null,
@@ -2306,7 +2334,10 @@ fun resolveDownloadFilename(
     }
 
     // 6. Fallback if still null, binary default, or contains base64 garbage
-    val isImageContext = mimeType?.startsWith("image/") == true || url.contains("image") || url.contains("img")
+    val cleanUrl = url.substringBefore('?').substringBefore('#').lowercase()
+    val isImageContext = mimeType?.startsWith("image/") == true || url.startsWith("data:image/") ||
+        cleanUrl.endsWith(".png") || cleanUrl.endsWith(".jpg") || cleanUrl.endsWith(".jpeg") ||
+        cleanUrl.endsWith(".webp") || cleanUrl.endsWith(".gif") || cleanUrl.endsWith(".svg")
     if (name.isNullOrBlank() || name == "downloadfile.bin" || name.contains("==") || (name.endsWith(".bin") && isImageContext)) {
         val ext = when {
             mimeType?.contains("jpeg") == true || mimeType?.contains("jpg") == true -> "jpg"
@@ -2386,34 +2417,34 @@ fun saveBytesToStorage(
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-        }
-
-        // Also save to MediaStore.Downloads
-        try {
-            val dlValues = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, cleanFilename)
-                put(MediaStore.Downloads.MIME_TYPE, realMime)
-                put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/Orbit")
-                put(MediaStore.Downloads.IS_PENDING, 1)
-            }
-            var dlUri = try {
-                context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, dlValues)
-            } catch (e: Exception) {
-                val safeName = "${baseName}_${System.currentTimeMillis()}.$realExt"
-                dlValues.put(MediaStore.Downloads.DISPLAY_NAME, safeName)
-                context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, dlValues)
-            }
-            if (dlUri != null) {
-                context.contentResolver.openOutputStream(dlUri)?.use { os ->
-                    os.write(bytes)
+        } else {
+            // Save non-images strictly to MediaStore.Downloads
+            try {
+                val dlValues = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, cleanFilename)
+                    put(MediaStore.Downloads.MIME_TYPE, realMime)
+                    put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/Orbit")
+                    put(MediaStore.Downloads.IS_PENDING, 1)
                 }
-                dlValues.clear()
-                dlValues.put(MediaStore.Downloads.IS_PENDING, 0)
-                context.contentResolver.update(dlUri, dlValues, null, null)
-                if (resultUri == null) resultUri = dlUri
+                var dlUri = try {
+                    context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, dlValues)
+                } catch (e: Exception) {
+                    val safeName = "${baseName}_${System.currentTimeMillis()}.$realExt"
+                    dlValues.put(MediaStore.Downloads.DISPLAY_NAME, safeName)
+                    context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, dlValues)
+                }
+                if (dlUri != null) {
+                    context.contentResolver.openOutputStream(dlUri)?.use { os ->
+                        os.write(bytes)
+                    }
+                    dlValues.clear()
+                    dlValues.put(MediaStore.Downloads.IS_PENDING, 0)
+                    context.contentResolver.update(dlUri, dlValues, null, null)
+                    resultUri = dlUri
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 
@@ -2515,7 +2546,7 @@ fun downloadHttpUrlUniversal(
                         val isImage = respMime?.startsWith("image/") == true ||
                             finalName.endsWith(".png", true) || finalName.endsWith(".jpg", true) ||
                             finalName.endsWith(".jpeg", true) || finalName.endsWith(".webp", true)
-                        val message = if (isImage) "Saved $finalName to Gallery & Downloads" else "Saved $finalName to Downloads"
+                        val message = if (isImage) "Saved $finalName to Gallery" else "Saved $finalName to Downloads"
                         android.os.Handler(android.os.Looper.getMainLooper()).post {
                             Toast.makeText(context.applicationContext, message, Toast.LENGTH_LONG).show()
                         }
@@ -2571,6 +2602,8 @@ fun fallbackSystemDownload(
     }
 }
 
+private val recentUniversalDownloads = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
 fun downloadFileUniversal(
     context: Context,
     url: String,
@@ -2584,6 +2617,20 @@ fun downloadFileUniversal(
     onPromptConfirmation: ((PendingDownloadPrompt) -> Unit)? = null
 ) {
     if (url.isBlank()) return
+
+    val now = System.currentTimeMillis()
+    val dedupKey = "$url|$suggestedFilename"
+    val lastTime = recentUniversalDownloads[dedupKey] ?: 0L
+    if (now - lastTime < 1000L && !skipConfirmation) {
+        return
+    }
+    recentUniversalDownloads[dedupKey] = now
+    if (recentUniversalDownloads.size > 50) {
+        val iter = recentUniversalDownloads.entries.iterator()
+        while (iter.hasNext()) {
+            if (now - iter.next().value > 10000L) iter.remove()
+        }
+    }
 
     val resolvedName = resolveDownloadFilename(url, contentDisposition, mimeType, suggestedFilename)
 
@@ -2801,7 +2848,7 @@ fun saveDataUrlToDownloads(
                 val isImage = effectiveMime.startsWith("image/") ||
                     filename.endsWith(".png", true) || filename.endsWith(".jpg", true) ||
                     filename.endsWith(".jpeg", true) || filename.endsWith(".webp", true)
-                val msg = if (isImage) "Saved to Gallery & Downloads" else "Saved $filename to Downloads"
+                val msg = if (isImage) "Saved to Gallery" else "Saved $filename to Downloads"
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context.applicationContext, msg, Toast.LENGTH_LONG).show()
                 }
