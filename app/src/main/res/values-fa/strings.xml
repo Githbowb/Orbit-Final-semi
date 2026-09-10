@@ -34,6 +34,48 @@
     <string name="msg_ram_cleaned">حافظه اوربیت آزاد شد! %1$.1f مگابایت پاک شد</string>
     <string name="msg_ram_already_optimal">حافظه اوربیت در کمترین حالت بهینه است (%1$.1f مگابایت)</string>
 
+    <!-- WiFi & Network Monitor Cockpit -->
+    <string name="mode_ram">رم (RAM)</string>
+    <string name="mode_wifi">وای‌فای</string>
+    <string name="wifi_monitor_title">مانیتور شبکه وای‌فای</string>
+    <string name="wifi_ssid_label">شبکه وای‌فای متصل</string>
+    <string name="wifi_disconnected">قطع اتصال</string>
+    <string name="wifi_connected_generic">شبکه وای‌فای</string>
+    <string name="network_cellular">داده همراه</string>
+    <string name="network_connected">شبکه متصل</string>
+    <string name="download_speed">دانلود</string>
+    <string name="upload_speed">آپلود</string>
+    <string name="ping_label">تأخیر (پینگ)</string>
+    <string name="ping_ms_fmt">%1$d میلی‌ثانیه</string>
+    <string name="ping_ultra_low">بسیار پایدار</string>
+    <string name="ping_good">تأخیر مناسب</string>
+    <string name="ping_high">تأخیر بالا</string>
+    <string name="ping_offline">قطع اتصال</string>
+    <string name="daily_usage_title">مصرف امروز</string>
+    <string name="daily_usage_subtitle">00:00 - اکنون</string>
+    <string name="daily_limit_title">سقف مصرف روزانه</string>
+    <string name="daily_limit_desc">هشدار هنگام نزدیک شدن به سقف مجاز مصرف وای‌فای</string>
+    <string name="daily_limit_none">بدون سقف</string>
+    <string name="daily_limit_badge">سقف %1$s</string>
+    <string name="daily_limit_used_fmt">%1$d%% مصرف شده</string>
+    <string name="daily_limit_warning">نزدیک به سقف روزانه (%1$d%% مصرف شده)</string>
+    <string name="daily_limit_exceeded">سقف مصرف روزانه رد شد (%1$d%%)!</string>
+    <string name="display_customization_title">شخصی‌سازی نمایشگر مانیتور</string>
+    <string name="display_customization_desc">انتخاب اطلاعات قابل نمایش روی کارت مانیتور</string>
+    <string name="display_mode_all">تمام اطلاعات (کامل)</string>
+    <string name="display_mode_speed">فقط سرعت</string>
+    <string name="display_mode_usage">فقط مصرف امروز</string>
+    <string name="adaptive_refresh_title">نرخ بروزرسانی هوشمند</string>
+    <string name="adaptive_refresh_desc">کاهش خودکار نرخ بروزرسانی در حالت بیکاری شبکه برای صرفه‌جویی باتری</string>
+    <string name="adaptive_refresh_live">فعال 800ms</string>
+    <string name="adaptive_refresh_idle">اقتصادی 2.5s</string>
+    <string name="btn_set_limit">تعیین سقف</string>
+    <string name="dialog_set_limit_title">تعیین سقف مصرف روزانه وای‌فای</string>
+    <string name="limit_unlimited">نامحدود (غیرفعال)</string>
+    <string name="limit_custom">سفارشی (مگابایت)</string>
+    <string name="limit_saved_toast">سقف مصرف روزانه روی %1$s تنظیم شد</string>
+    <string name="display_mode_saved_toast">حالت نمایش روی %1$s تنظیم شد</string>
+
     <!-- Orbit Tab -->
     <string name="orbit_dashboard_title">داشبورد اوربیت</string>
     <string name="floating_service">سرویس شناور</string>

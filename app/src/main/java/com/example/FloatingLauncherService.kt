@@ -66,6 +66,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.hypot
@@ -157,6 +158,16 @@ class FloatingLauncherService : Service() {
         // Preload in-memory cache in background to achieve instant launch
         serviceScope.launch {
             AppCache.getApps(this@FloatingLauncherService)
+        }
+
+        // Periodic background Wi-Fi telemetry update so downloads (e.g. Play Store games) are tracked
+        serviceScope.launch {
+            while (isActive) {
+                try {
+                    WifiMonitorPreferences.updateTrafficDelta(applicationContext)
+                } catch (_: Throwable) {}
+                delay(10_000L) // every 10 seconds
+            }
         }
     }
 

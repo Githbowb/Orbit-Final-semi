@@ -737,6 +737,17 @@ fun SystemPerformanceRamCard(
     modifier: Modifier = Modifier
 ) {
     var metrics by remember { mutableStateOf(readSystemMemoryMetrics(context)) }
+    var selectedMonitorMode by remember { mutableStateOf(WifiMonitorPreferences.getSelectedMode(context)) }
+    var showWifiSettingsDialog by remember { mutableStateOf(false) }
+    var wifiConfigVersion by remember { mutableIntStateOf(0) }
+
+    if (showWifiSettingsDialog) {
+        WifiMonitorSettingsDialog(
+            context = context,
+            onDismiss = { showWifiSettingsDialog = false },
+            onConfigChanged = { wifiConfigVersion++ }
+        )
+    }
 
     LaunchedEffect(Unit) {
         while (coroutineContext.isActive) {
@@ -890,7 +901,7 @@ fun SystemPerformanceRamCard(
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
-                // Header Row: Cockpit Telemetry Badge + Live Pulsing Status Pill
+                // Header Row: Cockpit Telemetry Badge + Mode Switcher Pill
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -905,14 +916,14 @@ fun SystemPerformanceRamCard(
                             modifier = Modifier
                                 .size(34.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(signalOrange.copy(alpha = 0.15f))
-                                .border(1.dp, signalOrange.copy(alpha = 0.45f), RoundedCornerShape(10.dp)),
+                                .background(if (selectedMonitorMode == WifiMonitorPreferences.MODE_RAM) signalOrange.copy(alpha = 0.15f) else neonCyan.copy(alpha = 0.15f))
+                                .border(1.dp, if (selectedMonitorMode == WifiMonitorPreferences.MODE_RAM) signalOrange.copy(alpha = 0.45f) else neonCyan.copy(alpha = 0.45f), RoundedCornerShape(10.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Speed,
+                                imageVector = if (selectedMonitorMode == WifiMonitorPreferences.MODE_RAM) Icons.Default.Speed else Icons.Default.Wifi,
                                 contentDescription = null,
-                                tint = signalOrange,
+                                tint = if (selectedMonitorMode == WifiMonitorPreferences.MODE_RAM) signalOrange else neonCyan,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -929,7 +940,7 @@ fun SystemPerformanceRamCard(
                                         .background(neonCyan.copy(alpha = pulseAlpha))
                                 )
                                 Text(
-                                    text = "LIVE TELEMETRY // HARDWARE",
+                                    text = if (selectedMonitorMode == WifiMonitorPreferences.MODE_RAM) "LIVE TELEMETRY // HARDWARE" else "LIVE TELEMETRY // NETWORK",
                                     color = neonCyan,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.ExtraBold,
@@ -938,7 +949,7 @@ fun SystemPerformanceRamCard(
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = stringResource(id = R.string.ram_monitor_title),
+                                text = if (selectedMonitorMode == WifiMonitorPreferences.MODE_RAM) stringResource(id = R.string.ram_monitor_title) else stringResource(id = R.string.wifi_monitor_title),
                                 color = inkLight,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
@@ -951,41 +962,131 @@ fun SystemPerformanceRamCard(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    // Live Status Pill with glowing animated beacon
-                    val shortStatusText = if (isOptimal) {
-                        stringResource(id = R.string.status_optimal)
-                    } else {
-                        stringResource(id = R.string.status_high_usage)
-                    }
-                    Box(
+                    // Mode Switcher Pill (RAM / Wi-Fi)
+                    Row(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(statusColor.copy(alpha = 0.12f))
-                            .border(1.dp, statusColor.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(20.dp))
+                            .padding(2.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        // RAM Option
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (selectedMonitorMode == WifiMonitorPreferences.MODE_RAM) signalOrange else Color.Transparent)
+                                .clickable {
+                                    selectedMonitorMode = WifiMonitorPreferences.MODE_RAM
+                                    WifiMonitorPreferences.setSelectedMode(context, WifiMonitorPreferences.MODE_RAM)
+                                }
+                                .padding(horizontal = 9.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(statusColor.copy(alpha = pulseAlpha))
-                            )
-                            Text(
-                                text = shortStatusText,
-                                color = statusColor,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Memory,
+                                    contentDescription = null,
+                                    tint = if (selectedMonitorMode == WifiMonitorPreferences.MODE_RAM) Color.White else inkDim,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Text(
+                                    text = stringResource(id = R.string.mode_ram),
+                                    color = if (selectedMonitorMode == WifiMonitorPreferences.MODE_RAM) Color.White else inkDim,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        }
+
+                        // Wi-Fi Option
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (selectedMonitorMode == WifiMonitorPreferences.MODE_WIFI) neonCyan else Color.Transparent)
+                                .clickable {
+                                    selectedMonitorMode = WifiMonitorPreferences.MODE_WIFI
+                                    WifiMonitorPreferences.setSelectedMode(context, WifiMonitorPreferences.MODE_WIFI)
+                                }
+                                .padding(horizontal = 9.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Wifi,
+                                    contentDescription = null,
+                                    tint = if (selectedMonitorMode == WifiMonitorPreferences.MODE_WIFI) Color(0xFF0C101C) else inkDim,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Text(
+                                    text = stringResource(id = R.string.mode_wifi),
+                                    color = if (selectedMonitorMode == WifiMonitorPreferences.MODE_WIFI) Color(0xFF0C101C) else inkDim,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                if (selectedMonitorMode == WifiMonitorPreferences.MODE_RAM) {
+                    // RAM Live Status Pill Sub-row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "SYSTEM MEMORY USAGE",
+                            color = inkDim,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.5.sp
+                        )
+
+                        // Live Status Pill with glowing animated beacon
+                        val shortStatusText = if (isOptimal) {
+                            stringResource(id = R.string.status_optimal)
+                        } else {
+                            stringResource(id = R.string.status_high_usage)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(statusColor.copy(alpha = 0.12f))
+                                .border(1.dp, statusColor.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 8.dp, vertical = 3.5.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(statusColor.copy(alpha = pulseAlpha))
+                                )
+                                Text(
+                                    text = shortStatusText,
+                                    color = statusColor,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
 
                 // Hero Cockpit Layout: Circular Arc Speedometer + VU Load Meter
                 Row(
@@ -1620,9 +1721,18 @@ fun SystemPerformanceRamCard(
                         maxLines = 1
                     )
                 }
+            } else {
+                // WiFi Cockpit Content
+                WifiMonitorCockpitContent(
+                    context = context,
+                    accentColor = accentColor,
+                    onOpenSettings = { showWifiSettingsDialog = true },
+                    configVersion = wifiConfigVersion
+                )
             }
         }
     }
+}
 }
 
 @Composable
@@ -3644,6 +3754,43 @@ fun SettingsTabContent(
                             )
                         }
                     }
+                }
+            )
+
+            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+
+            // Wi-Fi & Network Monitor Configuration
+            var showSettingsWifiDialog by remember { mutableStateOf(false) }
+
+            if (showSettingsWifiDialog) {
+                WifiMonitorSettingsDialog(
+                    context = context,
+                    onDismiss = { showSettingsWifiDialog = false }
+                )
+            }
+
+            val currentLimitMb = remember(showSettingsWifiDialog) { WifiMonitorPreferences.getDailyLimitMb(context) }
+            val currentDisplayMode = remember(showSettingsWifiDialog) { WifiMonitorPreferences.getDisplayMode(context) }
+            val displayModeLabel = when (currentDisplayMode) {
+                WifiMonitorPreferences.DISPLAY_SPEED_ONLY -> stringResource(id = R.string.display_mode_speed)
+                WifiMonitorPreferences.DISPLAY_USAGE_ONLY -> stringResource(id = R.string.display_mode_usage)
+                else -> stringResource(id = R.string.display_mode_all)
+            }
+
+            SetupOptionRow(
+                title = stringResource(id = R.string.wifi_monitor_title),
+                subtitle = if (currentLimitMb > 0f) "${currentLimitMb.toInt()} MB Limit · $displayModeLabel" else "${stringResource(id = R.string.daily_limit_none)} · $displayModeLabel",
+                icon = Icons.Default.Wifi,
+                iconColor = Color(0xFF00F0FF),
+                iconBgColor = Color(0xFF00F0FF).copy(alpha = 0.15f),
+                onClick = { showSettingsWifiDialog = true },
+                trailingContent = {
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = inkDim,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             )
         }

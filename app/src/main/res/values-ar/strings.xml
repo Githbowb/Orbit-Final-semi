@@ -34,6 +34,48 @@
     <string name="msg_ram_cleaned">تم تحرير ذاكرة أوربت! توفير %1$.1f م.ب</string>
     <string name="msg_ram_already_optimal">ذاكرة أوربت في أدنى مستوى مثالي (%1$.1f م.ب)</string>
 
+    <!-- WiFi & Network Monitor Cockpit -->
+    <string name="mode_ram">الذاكرة (RAM)</string>
+    <string name="mode_wifi">الواي فاي</string>
+    <string name="wifi_monitor_title">مراقبة شبكة الواي فاي</string>
+    <string name="wifi_ssid_label">شبكة الواي فاي المتصلة</string>
+    <string name="wifi_disconnected">غير متصل</string>
+    <string name="wifi_connected_generic">شبكة واي فاي</string>
+    <string name="network_cellular">بيانات الجوال</string>
+    <string name="network_connected">الشبكة متصلة</string>
+    <string name="download_speed">التحميل</string>
+    <string name="upload_speed">الرفع</string>
+    <string name="ping_label">زمن الاستجابة (Ping)</string>
+    <string name="ping_ms_fmt">%1$d م.ث</string>
+    <string name="ping_ultra_low">فائق الاستقرار</string>
+    <string name="ping_good">استجابة جيدة</string>
+    <string name="ping_high">استجابة بطيئة</string>
+    <string name="ping_offline">غير متاح</string>
+    <string name="daily_usage_title">استهلاك اليوم</string>
+    <string name="daily_usage_subtitle">00:00 - الآن</string>
+    <string name="daily_limit_title">حد الاستهلاك اليومي</string>
+    <string name="daily_limit_desc">تنبيه عند اقتراب استهلاك الواي فاي من الحد المحدد</string>
+    <string name="daily_limit_none">بلا حد</string>
+    <string name="daily_limit_badge">حد %1$s</string>
+    <string name="daily_limit_used_fmt">تم استهلاك %1$d%%</string>
+    <string name="daily_limit_warning">اقتراب من الحد اليومي (تم استهلاك %1$d%%)</string>
+    <string name="daily_limit_exceeded">تم تجاوز حد استهلاك الواي فاي اليومي (%1$d%%)!</string>
+    <string name="display_customization_title">تخصيص عناصر الواجهة</string>
+    <string name="display_customization_desc">تحديد البيانات الظاهرة على واجهة المراقبة</string>
+    <string name="display_mode_all">جميع البيانات (شامل)</string>
+    <string name="display_mode_speed">السرعة فقط</string>
+    <string name="display_mode_usage">استهلاك اليوم فقط</string>
+    <string name="adaptive_refresh_title">معدل التحديث الذكي</string>
+    <string name="adaptive_refresh_desc">تقليل معدل التحديث تلقائياً عند سكون الشبكة لتوفير البطارية</string>
+    <string name="adaptive_refresh_live">نشط 800ms</string>
+    <string name="adaptive_refresh_idle">توفير 2.5s</string>
+    <string name="btn_set_limit">تحديد الحد</string>
+    <string name="dialog_set_limit_title">تحديد حد استهلاك الواي فاي اليومي</string>
+    <string name="limit_unlimited">غير محدود (معطل)</string>
+    <string name="limit_custom">مخصص (ميجابايت)</string>
+    <string name="limit_saved_toast">تم ضبط الحد اليومي إلى %1$s</string>
+    <string name="display_mode_saved_toast">تم ضبط وضع العرض إلى %1$s</string>
+
     <!-- Orbit Tab -->
     <string name="orbit_dashboard_title">لوحة تحكم أوربت</string>
     <string name="floating_service">الخدمة العائمة</string>
